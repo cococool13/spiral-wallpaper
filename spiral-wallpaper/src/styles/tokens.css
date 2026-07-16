@@ -1,0 +1,29 @@
+/* Spiral design tokens — the only file allowed to contain hex values. */
+:root {
+  /* material */
+  --conc-01: #EBE9E4;   /* page background */
+  --conc-02: #DDDAD3;   /* surface */
+  --conc-03: #CFCCC4;   /* border / hairline rule */
+  --ink-01:  #10181B;   /* all body text */
+  --stl-02:  #666863;   /* secondary text (4.7:1 on page) */
+  --hlx-01:  #D52E2B;   /* helix red — accents, never body copy */
+  --hlx-02:  #6F1011;   /* oxblood — pressed / hover */
+
+  /* type */
+  --font-ui:   "Archivo", sans-serif;      /* variable: wdth + wght */
+  --font-mono: "IBM Plex Mono", monospace; /* anything data-like */
+  --wdth-display: 125;  --wght-display: 850;   /* caps */
+  --wdth-heading: 112;  --wght-heading: 700;
+
+  /* rhythm */
+  --unit: 8px;                              /* all spacing = multiples */
+  --ease: cubic-bezier(.2, .7, .2, 1);      /* the ONLY easing curve */
+  --dur-fast: 150ms;  --dur-slow: 400ms;
+
+  /* glass — controls only, never surfaces */
+  --radius-ctl: 999px;
+  --glass-blur: blur(16px) saturate(1.7);
+  --glass-edge: rgba(255, 255, 255, .45);
+  --glass-sheen: linear-gradient(115deg,
+      rgba(255,255,255,.55), rgba(255,255,255,0) 55%);
+}

@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: spiral-wallpaper
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: spiral-wallpaper/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: spiral-wallpaper/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: spiral-wallpaper/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Quality gates (hex guard + typecheck)
+        run: pnpm check:hex && pnpm tsc --noEmit
+
+      - name: Build Tauri app
+        run: pnpm tauri build
+
+      - name: Upload Windows bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: spiral-windows
+          path: |
+            spiral-wallpaper/src-tauri/target/release/bundle/msi/*.msi
+            spiral-wallpaper/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error

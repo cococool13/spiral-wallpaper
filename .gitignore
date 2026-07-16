@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+
+# Build output
+spiral-wallpaper/dist/
+spiral-wallpaper/src-tauri/target/
+spiral-wallpaper/src-tauri/gen/
+
+# Local agent settings
+.claude/settings.local.json
