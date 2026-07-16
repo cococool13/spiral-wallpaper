@@ -23,7 +23,7 @@ function* walk(path) {
 const violations = [];
 for (const dir of SCAN_DIRS) {
   for (const file of walk(join(ROOT, dir))) {
-    const rel = relative(ROOT, file);
+    const rel = relative(ROOT, file).replaceAll("\\", "/"); // Windows paths
     if (!EXTENSIONS.test(rel) || ALLOWED.has(rel)) continue;
     const lines = readFileSync(file, "utf8").split("\n");
     lines.forEach((line, i) => {
