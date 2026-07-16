@@ -11,3 +11,7 @@ spiral-wallpaper/src-tauri/gen/
 
 # Local agent settings
 .claude/settings.local.json
+
+# Re-include Tauri icons (global 'Icon?' pattern matches icons/ case-insensitively)
+!spiral-wallpaper/src-tauri/icons/
+!spiral-wallpaper/src-tauri/icons/**
