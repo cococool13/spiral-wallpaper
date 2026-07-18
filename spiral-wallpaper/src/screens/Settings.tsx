@@ -16,8 +16,33 @@ const FIT_MODES: { value: FitMode; label: string }[] = [
   { value: "center", label: "Center" },
 ];
 
-const DISCLOSURE =
-  "Closing this window keeps Spiral running in the background. Quit fully from the menu bar.";
+interface KeyFieldProps {
+  label: string;
+  value: string;
+  onCommit: (value: string) => void;
+}
+
+/** API-key input — commits on blur so we don't write the settings file per keystroke. */
+function KeyField({ label, value, onCommit }: KeyFieldProps) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <input
+      type="text"
+      className="settings__key"
+      aria-label={label}
+      placeholder="paste key"
+      spellCheck={false}
+      autoComplete="off"
+      value={draft}
+      onChange={(e) => setDraft(e.currentTarget.value)}
+      onBlur={() => {
+        const next = draft.trim();
+        if (next !== value) onCommit(next);
+      }}
+    />
+  );
+}
 
 export function Settings() {
   const [settings, setLocal] = useState<AppSettings>();
@@ -75,22 +100,6 @@ export function Settings() {
 
       <section className="settings__row">
         <div>
-          <h2 className="settings__label">Keep running in background</h2>
-          <p className="settings__desc">
-            {settings.keepRunningInBackground
-              ? DISCLOSURE
-              : "Closing this window quits Spiral fully."}
-          </p>
-        </div>
-        <Toggle
-          checked={settings.keepRunningInBackground}
-          label="Keep running in background"
-          onChange={(v) => update({ keepRunningInBackground: v })}
-        />
-      </section>
-
-      <section className="settings__row">
-        <div>
           <h2 className="settings__label">Thumbnail cache</h2>
           <p className="settings__desc">
             200 MB max, stored in Spiral's app data.
@@ -107,12 +116,11 @@ export function Settings() {
           <h2 className="settings__label">Wallpaper fit</h2>
           <p className="settings__desc">Applies the next time you set a wallpaper.</p>
         </div>
-        <div className="segmented" role="radiogroup" aria-label="Wallpaper fit">
+        <div className="segmented" role="group" aria-label="Wallpaper fit">
           {FIT_MODES.map((mode) => (
             <button
               key={mode.value}
-              role="radio"
-              aria-checked={settings.fitMode === mode.value}
+              aria-pressed={settings.fitMode === mode.value}
               className={
                 settings.fitMode === mode.value
                   ? "segmented__option segmented__option--active"
@@ -126,8 +134,52 @@ export function Settings() {
         </div>
       </section>
 
+      <section className="settings__row">
+        <div>
+          <h2 className="settings__label">Sources</h2>
+          <p className="settings__desc">
+            Wallhaven ✓ active · Unsplash{" "}
+            {settings.unsplashKey ? "✓ active" : "— needs a key"} · Pexels{" "}
+            {settings.pexelsKey ? "✓ active" : "— needs a key"}. Results are
+            never mixed across sources.
+          </p>
+        </div>
+      </section>
+
+      <section className="settings__row">
+        <div>
+          <h2 className="settings__label">Unsplash API key</h2>
+          <p className="settings__desc">
+            Free from unsplash.com/developers. Stored only on this computer,
+            sent only to Unsplash. Free-tier keys are extractable from any
+            client app — use one with nothing attached to it.
+          </p>
+        </div>
+        <KeyField
+          label="Unsplash API key"
+          value={settings.unsplashKey}
+          onCommit={(v) => update({ unsplashKey: v })}
+        />
+      </section>
+
+      <section className="settings__row">
+        <div>
+          <h2 className="settings__label">Pexels API key</h2>
+          <p className="settings__desc">
+            Free from pexels.com/api. Stored only on this computer, sent only
+            to Pexels. Same rule: free-tier keys only.
+          </p>
+        </div>
+        <KeyField
+          label="Pexels API key"
+          value={settings.pexelsKey}
+          onCommit={(v) => update({ pexelsKey: v })}
+        />
+      </section>
+
       <p className="settings__attribution">
-        Wallpapers from Wallhaven. Spiral is not affiliated.
+        Wallpapers from Wallhaven, Unsplash, and Pexels. Spiral is not
+        affiliated with any of them.
       </p>
     </main>
   );

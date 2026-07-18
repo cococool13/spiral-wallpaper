@@ -8,6 +8,7 @@
   --stl-02:  #666863;   /* secondary text (4.7:1 on page) */
   --hlx-01:  #D52E2B;   /* helix red — accents, never body copy */
   --hlx-02:  #6F1011;   /* oxblood — pressed / hover */
+  --paper:   #F5F4F0;   /* paper — button labels on red (4.5:1, bold >= 15px) */
 
   /* type */
   --font-ui:   "Archivo", sans-serif;      /* variable: wdth + wght */

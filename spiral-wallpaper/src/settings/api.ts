@@ -4,9 +4,11 @@ export type FitMode = "fill" | "fit" | "center";
 
 export interface AppSettings {
   launchAtLogin: boolean;
-  keepRunningInBackground: boolean;
   fitMode: FitMode;
   firstRunCompleted: boolean;
+  /** Free-tier source keys — treated as public, stored only on this machine. */
+  unsplashKey: string;
+  pexelsKey: string;
 }
 
 export function getSettings(): Promise<AppSettings> {

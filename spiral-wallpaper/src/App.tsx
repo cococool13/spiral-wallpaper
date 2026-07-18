@@ -4,7 +4,6 @@ import { Browse } from "./screens/Browse";
 import { FirstRun } from "./screens/FirstRun";
 import { Settings } from "./screens/Settings";
 import { getSettings, setSettings, type AppSettings } from "./settings/api";
-import { wallhaven } from "./sources/wallhaven";
 
 type Screen = "browse" | "settings";
 
@@ -22,11 +21,6 @@ function App() {
     return (
       <div className="app">
         <FirstRun
-          settings={boot}
-          onChange={(next) => {
-            setBoot(next);
-            setSettings(next).catch(() => {});
-          }}
           onDone={() => {
             const next = { ...boot, firstRunCompleted: true };
             setBoot(next);
@@ -67,7 +61,7 @@ function App() {
 
       {/* Browse stays mounted so results and tile states survive navigation. */}
       <div className={screen === "browse" ? "screen" : "screen screen--hidden"}>
-        <Browse source={wallhaven} />
+        <Browse />
       </div>
       {screen === "settings" && <Settings />}
     </div>

@@ -11,9 +11,12 @@ use tauri::{AppHandle, Manager};
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub launch_at_login: bool,
-    pub keep_running_in_background: bool,
     pub fit_mode: FitMode,
     pub first_run_completed: bool,
+    /// Source API keys. Free-tier, client-side keys — treated as public
+    /// (stated in Settings); stored only in this local file.
+    pub unsplash_key: String,
+    pub pexels_key: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -27,10 +30,11 @@ pub enum FitMode {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            launch_at_login: false,         // off by default — stated in Settings
-            keep_running_in_background: true, // disclosed in Settings and first-run
+            launch_at_login: false, // off by default — stated in Settings
             fit_mode: FitMode::Fill,
             first_run_completed: false,
+            unsplash_key: String::new(),
+            pexels_key: String::new(),
         }
     }
 }
