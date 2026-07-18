@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
+import { errorCopy } from "../sources";
 import type { Wallpaper, WallpaperSource } from "../sources/types";
-import { errorCopy } from "../sources/wallhaven";
 
 type TileState = "idle" | "applying" | "applied" | "error";
 

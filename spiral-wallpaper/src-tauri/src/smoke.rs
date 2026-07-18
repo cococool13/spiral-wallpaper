@@ -25,7 +25,7 @@ pub fn maybe_run(_app: tauri::AppHandle) {}
 
 #[cfg(debug_assertions)]
 async fn run(app: &tauri::AppHandle) -> Result<(), String> {
-    use crate::{setter, wallhaven};
+    use crate::{cache, setter, wallhaven};
     use tauri::Manager;
 
     // SPIRAL_RESTORE=<path>: just set that wallpaper and exit (recovery helper).
@@ -41,10 +41,10 @@ async fn run(app: &tauri::AppHandle) -> Result<(), String> {
     println!("SMOKE search: {} items, last_page {}", page.items.len(), page.last_page);
     let first = page.items.first().ok_or("no results")?;
 
-    let thumb = wallhaven::cache_thumb(app, http, &first.id, &first.thumb_url).await?;
+    let thumb = cache::cache_thumb(app, http, &first.id, &first.thumb_url).await?;
     println!("SMOKE thumb cached: {thumb}");
 
-    let full = wallhaven::download_full(app, http, &first.id, &first.full_url).await?;
+    let full = cache::download_full(app, http, &first.id, &first.full_url).await?;
     println!("SMOKE full-res downloaded: {}", full.display());
 
     let previous = setter::current_wallpaper(app)?;

@@ -39,8 +39,10 @@
   color: var(--stl-02);
   padding: var(--unit) 0;
   cursor: default;
+  transition: color var(--dur-fast) var(--ease);
 }
 
+.chrome__nav-item:hover,
 .chrome__nav-item--active {
   color: var(--ink-01);
 }
@@ -60,7 +62,8 @@
   max-width: calc(var(--unit) * 60);
   height: calc(var(--unit) * 6);
   padding: 0 calc(var(--unit) * 3);
-  background: var(--conc-02);
+  /* conc-01, not conc-02: the stl-02 placeholder needs 4.5:1 (AA). */
+  background: var(--conc-01);
   border: 1px solid var(--conc-03);
   border-radius: 0;
   font-family: var(--font-mono);
@@ -69,6 +72,13 @@
 
 .browse__search::placeholder {
   color: var(--stl-02);
+}
+
+.browse__filters {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--unit) * 3);
+  flex-wrap: wrap;
 }
 
 .browse__chips {
@@ -88,6 +98,10 @@
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
+.chip:hover {
+  color: var(--ink-01);
+}
+
 .chip--active {
   color: var(--ink-01);
   border-color: var(--ink-01);
@@ -102,7 +116,8 @@
   justify-content: center;
   gap: calc(var(--unit) * 2);
   border: 1px solid var(--conc-03);
-  background: var(--conc-02);
+  /* conc-01, not conc-02: stl-02 copy needs 4.5:1 (AA); the hairline frames it. */
+  background: var(--conc-01);
   text-align: center;
   padding: calc(var(--unit) * 6);
 }
@@ -255,8 +270,9 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
   overflow: hidden;
   font-family: var(--font-ui);
-  font-size: 14px;
-  font-variation-settings: "wdth" 100, "wght" 600;
+  /* Paper on Helix Red passes only at bold >= 15px (measured 4.5:1). */
+  font-size: 15px;
+  font-variation-settings: "wdth" 100, "wght" 700;
   transition:
     transform var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
@@ -280,16 +296,18 @@
 }
 
 .btn-glass--primary {
-  background: color-mix(in srgb, var(--hlx-01) 62%, transparent);
-  color: var(--conc-01);
+  /* Fully tinted: any real transparency over light concrete drops the paper
+     label below the guide's measured 4.5:1. Glass reads via sheen + edge. */
+  background: var(--hlx-01);
+  color: var(--paper);
 }
 
 .btn-glass--primary:hover {
-  background: color-mix(in srgb, var(--hlx-02) 72%, transparent);
+  background: color-mix(in srgb, var(--hlx-02) 72%, var(--hlx-01));
 }
 
 .btn-glass--primary:active {
-  background: color-mix(in srgb, var(--hlx-02) 86%, transparent);
+  background: color-mix(in srgb, var(--hlx-02) 86%, var(--hlx-01));
 }
 
 .btn-glass--secondary {
@@ -394,16 +412,25 @@
   border-color: var(--hlx-01);
 }
 
-.toggle--on .toggle::after {
-  /* expands the hit area to 56x48 without changing the visual */
-  content: "";
-  position: absolute;
-  inset: calc(var(--unit) * -1) 0;
-}
-
-.toggle__knob {
+.toggle--on .toggle__knob {
   transform: translateX(calc(var(--unit) * 3 - 2px));
   background: var(--conc-01);
+}
+
+.settings__key {
+  width: calc(var(--unit) * 40);
+  height: calc(var(--unit) * 6);
+  padding: 0 calc(var(--unit) * 2);
+  /* conc-01, not conc-02: the stl-02 placeholder needs 4.5:1 (AA). */
+  background: var(--conc-01);
+  border: 1px solid var(--conc-03);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.settings__key::placeholder {
+  color: var(--stl-02);
 }
 
 /* Segmented control — flat concrete, like chips. */
@@ -422,6 +449,10 @@
   font-size: 12px;
   color: var(--stl-02);
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.segmented__option:hover {
+  color: var(--ink-01);
 }
 
 .segmented__option + .segmented__option {
@@ -467,20 +498,4 @@
   font-family: var(--font-ui);
   font-size: 18px;
   color: var(--ink-01);
-}
-
-.firstrun__disclosure {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--unit) * 3);
-  border: 1px solid var(--conc-03);
-  background: var(--conc-02);
-  padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
-  max-width: calc(var(--unit) * 70);
-}
-
-.firstrun__disclosure-text {
-  font-size: 13px;
-  color: var(--stl-02);
-  text-align: left;
 }

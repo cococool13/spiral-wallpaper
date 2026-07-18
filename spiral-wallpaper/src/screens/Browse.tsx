@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { WallpaperTile } from "../components/WallpaperTile";
 import { useDebounce } from "../hooks/useDebounce";
-import type { Wallpaper, WallpaperSource } from "../sources/types";
-import { errorCopy } from "../sources/wallhaven";
+import { errorCopy, SOURCES } from "../sources";
+import type { Wallpaper } from "../sources/types";
 
+// Wallhaven-only category filters — other sources have no category axis.
 const CHIPS = [
   { label: "Toplist", categories: "111" },
   { label: "General", categories: "100" },
@@ -11,16 +12,13 @@ const CHIPS = [
   { label: "People", categories: "001" },
 ] as const;
 
-// Wallhaven allows ~45 requests/minute — debounce typing well below that.
+// The strictest source limit (Wallhaven, ~45 requests/minute) sets the pace.
 const SEARCH_DEBOUNCE_MS = 500;
 
 type Status = "idle" | "loading" | "ready" | "error";
 
-interface BrowseProps {
-  source: WallpaperSource;
-}
-
-export function Browse({ source }: BrowseProps) {
+export function Browse() {
+  const [sourceIndex, setSourceIndex] = useState(0);
   const [query, setQuery] = useState("");
   const [chipIndex, setChipIndex] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
@@ -74,12 +72,14 @@ export function Browse({ source }: BrowseProps) {
     e.preventDefault();
   }
 
+  const active = SOURCES[sourceIndex];
+
   useEffect(() => {
     if (!touched) return;
     const id = ++requestId.current;
     setStatus("loading");
     setError(undefined);
-    source
+    active.api
       .search({
         query: debouncedQuery,
         categories: CHIPS[chipIndex].categories,
@@ -95,17 +95,17 @@ export function Browse({ source }: BrowseProps) {
       })
       .catch((e: unknown) => {
         if (id !== requestId.current) return;
-        setError(errorCopy(e));
+        setError(errorCopy(e, active.label));
         setStatus("error");
       });
-  }, [debouncedQuery, chipIndex, touched]);
+  }, [debouncedQuery, chipIndex, sourceIndex, touched]);
 
   async function loadMore() {
     const id = requestId.current;
     setLoadingMore(true);
     setError(undefined);
     try {
-      const result = await source.search({
+      const result = await active.api.search({
         query: debouncedQuery,
         categories: CHIPS[chipIndex].categories,
         sorting: debouncedQuery ? "relevance" : "toplist",
@@ -116,7 +116,7 @@ export function Browse({ source }: BrowseProps) {
       setPageNum(result.page);
       setLastPage(result.lastPage);
     } catch (e: unknown) {
-      if (id === requestId.current) setError(errorCopy(e));
+      if (id === requestId.current) setError(errorCopy(e, active.label));
     } finally {
       setLoadingMore(false);
     }
@@ -127,6 +127,7 @@ export function Browse({ source }: BrowseProps) {
       <input
         type="search"
         className="browse__search"
+        aria-label="Search wallpapers"
         placeholder="search wallpapers"
         spellCheck={false}
         value={query}
@@ -136,19 +137,43 @@ export function Browse({ source }: BrowseProps) {
         }}
       />
 
-      <div className="browse__chips">
-        {CHIPS.map((chip, i) => (
-          <button
-            key={chip.label}
-            className={i === chipIndex && touched ? "chip chip--active" : "chip"}
-            onClick={() => {
-              setChipIndex(i);
-              setTouched(true);
-            }}
-          >
-            {chip.label}
-          </button>
-        ))}
+      <div className="browse__filters">
+        <div className="segmented" role="group" aria-label="Wallpaper source">
+          {SOURCES.map((s, i) => (
+            <button
+              key={s.name}
+              aria-pressed={i === sourceIndex}
+              className={
+                i === sourceIndex
+                  ? "segmented__option segmented__option--active"
+                  : "segmented__option"
+              }
+              onClick={() => {
+                setSourceIndex(i);
+                setTouched(true);
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {active.name === "wallhaven" && (
+          <div className="browse__chips">
+            {CHIPS.map((chip, i) => (
+              <button
+                key={chip.label}
+                className={i === chipIndex && touched ? "chip chip--active" : "chip"}
+                onClick={() => {
+                  setChipIndex(i);
+                  setTouched(true);
+                }}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {status === "idle" && (
@@ -165,7 +190,7 @@ export function Browse({ source }: BrowseProps) {
       {status === "loading" && (
         <section className="browse__empty" aria-label="Loading">
           <span className="browse__empty-eyebrow">Browse</span>
-          <p className="browse__empty-copy">Fetching from Wallhaven…</p>
+          <p className="browse__empty-copy">Fetching from {active.label}…</p>
         </section>
       )}
 
@@ -181,7 +206,7 @@ export function Browse({ source }: BrowseProps) {
           <span className="browse__empty-eyebrow">Browse</span>
           <h1 className="browse__empty-title">No results.</h1>
           <p className="browse__empty-copy">
-            Nothing on Wallhaven matches “{debouncedQuery}”. Try a broader
+            Nothing on {active.label} matches “{debouncedQuery}”. Try a broader
             search.
           </p>
         </section>
@@ -191,7 +216,7 @@ export function Browse({ source }: BrowseProps) {
         <div className="browse__scroll">
           <div className="browse__grid" role="list" ref={gridRef} onKeyDown={onGridKeyDown}>
             {items.map((wallpaper) => (
-              <WallpaperTile key={wallpaper.id} wallpaper={wallpaper} source={source} />
+              <WallpaperTile key={wallpaper.id} wallpaper={wallpaper} source={active.api} />
             ))}
           </div>
           {error && <p className="browse__more-error">{error}</p>}
