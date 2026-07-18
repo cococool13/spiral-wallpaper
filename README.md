@@ -1,6 +1,7 @@
-# Spiral — starter kit
+# Spiral — brand kit + Spiral Wallpaper
 
-Brand assets and agent instructions. No code — the agent writes all of it.
+Brand assets, agent build briefs, and the finished first app: **Spiral Wallpaper**
+(`spiral-wallpaper/` — Tauri 2 + React; see its README to build and run).
 
 ## Start building
 
@@ -17,6 +18,7 @@ First message to the agent: **"Read your instructions and begin Milestone 1."**
 
 | File | What |
 | --- | --- |
+| `spiral-wallpaper/` | The app — built through v1 + the A1–A7 refinement pass |
 | `CLAUDE.md` | Full build brief for Claude Code — brand tokens, stack, scope, milestones |
 | `AGENTS.md` | Same brief for Codex |
 | `assets/spiral-brand-guide.html` | Complete brand guidelines — open in any browser |

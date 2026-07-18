@@ -1,6 +1,6 @@
 # Spiral Wallpaper — build brief for Claude Code
 
-You are building **Spiral Wallpaper**, the first app of the Spiral brand — a free, privacy-first, super-lightweight desktop wallpaper app for macOS and Windows. It is a clean GUI over free wallpaper sources (Wallhaven's public API). The user clicks a wallpaper, it downloads and applies automatically. The app can keep running after the window closes — and it says so in plain language.
+You are building **Spiral Wallpaper**, the first app of the Spiral brand — a free, privacy-first, super-lightweight desktop wallpaper app for macOS and Windows. It is a clean GUI over free wallpaper sources (Wallhaven, plus optional Unsplash and Pexels with user-supplied free keys). The user clicks a wallpaper, it downloads and applies automatically. The app quits when the window closes — nothing keeps running in the background.
 
 Work milestone by milestone. After each milestone, stop, summarize what you built, and wait for approval before continuing.
 
@@ -47,13 +47,13 @@ Spiral's identity: "complex but simple." Modern industrial — a concrete wareho
 - Buttons are the one exception: **liquid glass** — pill radius (`--radius-ctl`), `backdrop-filter: var(--glass-blur)`, 1px `--glass-edge` border, one specular sheen overlay, inner top highlight. Primary = tinted helix-red glass (paper-white label), deepens toward oxblood on hover/press. Secondary = clear frosted glass, ink label. Small hover lift (translateY(-1px)); respect `prefers-reduced-motion`.
 - Never stack glass on glass. A handful of glass controls per screen maximum — backdrop-filter costs frames, and we don't pay frames.
 - Red is for the mark, interaction, and warnings. If a screen is more than a few percent red, something is wrong. Red is never body text (4.1:1).
-- The Spiral mark (provided in `/assets`) is used in one color at a time — red, ink, or paper. Never gradients, shadows, rotation, or other hues. Menu bar / tray uses the 16–24px template version.
+- The Spiral mark (provided in `/assets`) is used in one color at a time — red, ink, or paper. Never gradients, shadows, rotation, or other hues. Small contexts (16–24px) use the template version.
 - Motion explains state, never decorates. One easing curve. Entrances rise, exits fade.
 
 ### Voice (all UI copy)
 - State, never sell. "No account needed." "Deletes 1.2 GB of caches. Nothing else."
-- Anything running after the window closes is disclosed before it happens:
-  "Closing this window keeps Spiral running in the background. Quit fully from the menu bar."
+- Anything the app does beyond the visible click is disclosed in plain language before it happens:
+  "Done. Nothing else happens until you open it." (installer, last line)
 - Errors name the problem and the fix. Never "Oops! Something went wrong."
 - Buttons say exactly what happens: "Apply wallpaper," not "Submit."
 
@@ -65,30 +65,31 @@ Spiral's identity: "complex but simple." Modern industrial — a concrete wareho
 - Frontend: **React 18 + Vite + TypeScript**, plain CSS with the token block above. No Tailwind, no component library — the tokens are the design system.
 - Fonts: Archivo (variable) + IBM Plex Mono, self-hosted woff2 subsets (no Google Fonts network call at runtime — privacy pillar).
 - Rust side: `wallpaper` crate for setting the desktop wallpaper cross-platform (verify current maintenance; if stale, implement directly — macOS: `NSWorkspace.setDesktopImageURL` via objc2 or `osascript`; Windows: `SystemParametersInfoW` with `SPI_SETDESKWALLPAPER`).
-- System tray via Tauri's tray API; close-to-tray behavior.
+- No system tray and no background process: closing the window quits the app. (Close-to-tray shipped in v1 and was removed in the refinement pass — a wallpaper setter has no reason to keep running.)
 - No analytics, no telemetry, no accounts, no auto-update phone-home in v1. The only network calls are to wallpaper sources, made when the user acts.
 
-## 3. Data source
+## 3. Data sources
 
 - **Wallhaven API v1** (`https://wallhaven.cc/api/v1/search`): free, no key required for SFW content. Respect the ~45 req/min rate limit; debounce search input.
 - Default query: `purity=100` (SFW only), `categories=111`, sorting `toplist`. No NSFW support at all in v1 — do not add the API-key path.
 - Cache thumbnails on disk (Tauri app-data dir) with an LRU cap (state the cap in Settings: "Thumbnail cache: 200 MB max. Clear now.").
-- Architecture note: put the source behind a `WallpaperSource` interface (search, getFullRes) so other free sources can be added later without touching UI.
+- **Unsplash + Pexels** (added in the refinement pass): each needs a free user-supplied API key, entered in Settings and stored only in the local settings file. Keys are treated as public — free-tier only, never committed, never compiled into the binary. Results are never blended across sources; the active source is always visible.
+- Architecture note: sources sit behind a `WallpaperSource` interface — three implementations now (Wallhaven, Unsplash, Pexels) over shared Rust `net`/`cache` modules; the UI never changes when one is added.
 
 ## 4. App structure (v1 scope)
 
 Three screens, no more:
-1. **Browse** — search bar (mono placeholder text), category chips, responsive thumbnail grid. Click a thumbnail → glass "Apply wallpaper" button on hover/focus. Applying shows a progress state on the tile itself (download → applied ✓).
-2. **Settings** — one page, everything stated: launch at login (off by default), keep running in background (on, with the disclosure line visible), cache size + clear button, wallpaper fit mode (fill/fit/center), source attribution ("Wallpapers from Wallhaven. Spiral is not affiliated.").
-3. **First run** — a single screen, not a carousel: mark, one sentence ("Click a wallpaper. It downloads and applies. That's it."), the background-running disclosure with an inline toggle, one glass button ("Start browsing"). No account. No email. Nothing to configure.
+1. **Browse** — search bar (mono placeholder text), source switcher (Wallhaven / Unsplash / Pexels — one active at a time), category chips (Wallhaven only), responsive thumbnail grid. Click a thumbnail → glass "Apply wallpaper" button on hover/focus. Applying shows a progress state on the tile itself (download → applied ✓).
+2. **Settings** — one page, everything stated: launch at login (off by default), cache size + clear button, wallpaper fit mode (fill/fit/center), sources row with per-source status and API-key fields, source attribution ("Wallpapers from Wallhaven, Unsplash, and Pexels. Spiral is not affiliated with any of them.").
+3. **First run** — a single screen, not a carousel: mark, one sentence ("Click a wallpaper. It downloads and applies. That's it."), one glass button ("Start browsing"). No account. No email. Nothing to configure.
 
 Static wallpapers only. No animated/live wallpapers — explicitly out of scope.
 
 ## 5. Milestones (stop after each)
 
-1. **Scaffold** — Tauri 2 + React + Vite + TS builds and runs on the dev machine. Tokens file in place, fonts self-hosted, brand mark in the titlebar region and tray. Empty Browse screen renders on-brand.
+1. **Scaffold** — Tauri 2 + React + Vite + TS builds and runs on the dev machine. Tokens file in place, fonts self-hosted, brand mark in the titlebar region. Empty Browse screen renders on-brand.
 2. **Browse + apply** — Wallhaven search/grid working, full-res download to app-data, wallpaper actually sets on the host OS. Error states written in brand voice (offline, rate-limited, apply-failed each name the fix).
-3. **Tray + background** — close-to-tray with the disclosure, tray menu (Open Spiral / Pause / Quit fully), Settings screen complete.
+3. **Settings** — Settings screen complete. (As originally briefed this milestone also shipped close-to-tray and a tray menu; both were removed in the refinement pass.)
 4. **First run + polish** — onboarding screen, keyboard navigation through the grid, focus states (2px helix outline, 3px offset), `prefers-reduced-motion` verified, then a size/perf pass: report the final binary size and idle RAM, and cut anything that grew them without earning it.
 
 ## 6. Acceptance criteria
