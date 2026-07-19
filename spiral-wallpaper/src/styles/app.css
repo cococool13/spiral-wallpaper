@@ -155,11 +155,12 @@
   max-width: calc(var(--unit) * 50);
 }
 
-/* Thumbnail grid */
+/* Thumbnail grid — results entrance rises, like every entrance in Spiral. */
 .browse__scroll {
   flex: 1;
   overflow-y: auto;
   padding-bottom: calc(var(--unit) * 4);
+  animation: rise var(--dur-slow) var(--ease);
 }
 
 .browse__grid {
@@ -177,13 +178,26 @@
 }
 
 .browse__more-error {
+  display: flex;
+  align-items: center;
+  gap: var(--unit);
   font-size: 13px;
   color: var(--ink-01);
   border: 1px solid var(--conc-03);
-  border-left: 2px solid var(--hlx-01);
   background: var(--conc-02);
   padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
   margin-top: calc(var(--unit) * 2);
+}
+
+/* Warnings lead with the red dot — same device as the eyebrow. */
+.browse__more-error::before,
+.settings__error::before {
+  content: "";
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-ctl);
+  background: var(--hlx-01);
 }
 
 .tile {
@@ -292,7 +306,8 @@
 }
 
 .btn-glass:active {
-  transform: translateY(0);
+  /* Press feedback: the interface heard the click. */
+  transform: translateY(0) scale(0.97);
 }
 
 .btn-glass--primary {
@@ -339,10 +354,12 @@
 }
 
 .settings__error {
+  display: flex;
+  align-items: center;
+  gap: var(--unit);
   font-size: 14px;
   color: var(--ink-01);
   border: 1px solid var(--conc-03);
-  border-left: 2px solid var(--hlx-01);
   background: var(--conc-02);
   padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
   margin-bottom: calc(var(--unit) * 3);
@@ -368,6 +385,8 @@
   color: var(--stl-02);
   max-width: calc(var(--unit) * 60);
   margin-top: var(--unit);
+  /* Cache size updates in place — keep digits from shifting the line. */
+  font-variant-numeric: tabular-nums;
 }
 
 .settings__attribution {

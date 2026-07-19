@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { WallpaperTile } from "../components/WallpaperTile";
 import { useDebounce } from "../hooks/useDebounce";
-import { errorCopy, SOURCES } from "../sources";
+import { errorCopy, errorNeedsSettings, SOURCES } from "../sources";
 import type { Wallpaper } from "../sources/types";
 
 // Wallhaven-only category filters — other sources have no category axis.
@@ -17,7 +17,11 @@ const SEARCH_DEBOUNCE_MS = 500;
 
 type Status = "idle" | "loading" | "ready" | "error";
 
-export function Browse() {
+interface BrowseProps {
+  onOpenSettings: () => void;
+}
+
+export function Browse({ onOpenSettings }: BrowseProps) {
   const [sourceIndex, setSourceIndex] = useState(0);
   const [query, setQuery] = useState("");
   const [chipIndex, setChipIndex] = useState(0);
@@ -27,6 +31,7 @@ export function Browse() {
   const [lastPage, setLastPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string>();
+  const [fixInSettings, setFixInSettings] = useState(false);
   // Privacy pillar: no network until the user acts.
   const [touched, setTouched] = useState(false);
   const requestId = useRef(0);
@@ -96,6 +101,7 @@ export function Browse() {
       .catch((e: unknown) => {
         if (id !== requestId.current) return;
         setError(errorCopy(e, active.label));
+        setFixInSettings(errorNeedsSettings(e));
         setStatus("error");
       });
   }, [debouncedQuery, chipIndex, sourceIndex, touched]);
@@ -195,9 +201,14 @@ export function Browse() {
       )}
 
       {status === "error" && (
-        <section className="browse__empty" aria-label="Search failed">
+        <section className="browse__empty" aria-label="Search failed" role="alert">
           <span className="browse__empty-eyebrow">Problem</span>
           <p className="browse__empty-copy">{error}</p>
+          {fixInSettings && (
+            <button className="btn-glass btn-glass--secondary" onClick={onOpenSettings}>
+              Open Settings
+            </button>
+          )}
         </section>
       )}
 
@@ -219,7 +230,11 @@ export function Browse() {
               <WallpaperTile key={wallpaper.id} wallpaper={wallpaper} source={active.api} />
             ))}
           </div>
-          {error && <p className="browse__more-error">{error}</p>}
+          {error && (
+            <p className="browse__more-error" role="alert">
+              {error}
+            </p>
+          )}
           {pageNum < lastPage && (
             <div className="browse__more">
               <button

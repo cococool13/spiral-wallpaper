@@ -82,7 +82,11 @@ export function Settings() {
 
   return (
     <main className="settings">
-      {error && <p className="settings__error">{error}</p>}
+      {error && (
+        <p className="settings__error" role="alert">
+          {error}
+        </p>
+      )}
 
       <section className="settings__row">
         <div>
@@ -138,9 +142,9 @@ export function Settings() {
         <div>
           <h2 className="settings__label">Sources</h2>
           <p className="settings__desc">
-            Wallhaven ✓ active · Unsplash{" "}
-            {settings.unsplashKey ? "✓ active" : "— needs a key"} · Pexels{" "}
-            {settings.pexelsKey ? "✓ active" : "— needs a key"}. Results are
+            Wallhaven is active. Unsplash{" "}
+            {settings.unsplashKey ? "is active" : "needs a key"}. Pexels{" "}
+            {settings.pexelsKey ? "is active" : "needs a key"}. Results are
             never mixed across sources.
           </p>
         </div>
@@ -152,7 +156,7 @@ export function Settings() {
           <p className="settings__desc">
             Free from unsplash.com/developers. Stored only on this computer,
             sent only to Unsplash. Free-tier keys are extractable from any
-            client app — use one with nothing attached to it.
+            client app, so use one with nothing attached to it.
           </p>
         </div>
         <KeyField

@@ -45,11 +45,17 @@ export const SOURCES: Source[] = [
   { name: "pexels", label: "Pexels", keyless: false, api: makeApi("pexels") },
 ];
 
+/** True when the fix for this error lives on the Settings screen. */
+export function errorNeedsSettings(error: unknown): boolean {
+  const code = String(error).split(":")[0];
+  return code === "needs_key" || code === "bad_key";
+}
+
 /** Backend error codes → brand-voice copy. Each names the problem and the fix. */
 export function errorCopy(error: unknown, sourceLabel = "the source"): string {
   const code = String(error).split(":")[0];
   const copy: Record<string, string> = {
-    offline: `No connection. Spiral couldn't reach ${sourceLabel} — check your network, then try again.`,
+    offline: `No connection. Spiral couldn't reach ${sourceLabel}. Check your network, then try again.`,
     rate_limited: `${sourceLabel} is rate-limiting requests. Wait a minute, then try again.`,
     bad_response: `${sourceLabel} sent an unexpected response. Try again in a minute.`,
     needs_key: `${sourceLabel} needs a free API key. Add one in Settings.`,

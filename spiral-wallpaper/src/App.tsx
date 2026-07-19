@@ -61,7 +61,7 @@ function App() {
 
       {/* Browse stays mounted so results and tile states survive navigation. */}
       <div className={screen === "browse" ? "screen" : "screen screen--hidden"}>
-        <Browse />
+        <Browse onOpenSettings={() => setScreen("settings")} />
       </div>
       {screen === "settings" && <Settings />}
     </div>
