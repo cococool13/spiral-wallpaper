@@ -31,6 +31,8 @@
     "active": true,
     "targets": "all",
     "macOS": {
+      "signingIdentity": "Developer ID Application: COHEN BENJAMIN COOLIOGE (CU8NTJWQ43)",
+      "hardenedRuntime": true,
       "dmg": {
         "background": "./dmg/background.png",
         "windowSize": { "width": 660, "height": 400 },
