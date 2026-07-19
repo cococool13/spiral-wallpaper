@@ -9,6 +9,7 @@
 [![build](https://github.com/cococool13/spiral-wallpaper/actions/workflows/build.yml/badge.svg)](https://github.com/cococool13/spiral-wallpaper/actions/workflows/build.yml)
 ![platforms](https://img.shields.io/badge/macOS%2013%2B%20·%20Windows%2010%2B-10181B?label=runs%20on)
 ![size](https://img.shields.io/badge/binary-4.6%20MB-D52E2B)
+[![license](https://img.shields.io/badge/license-MIT-666863)](LICENSE)
 
 <img src="docs/screenshot-browse.png" alt="Spiral Wallpaper browse screen: a thumbnail grid with a glass Apply wallpaper button on the hovered tile" width="820" />
 
@@ -82,4 +83,5 @@ animated wallpapers, auto-update, anything that phones home.
 
 ---
 
-Wallpapers from [Wallhaven](https://wallhaven.cc). Spiral is not affiliated.
+[MIT licensed](LICENSE). Wallpapers from [Wallhaven](https://wallhaven.cc).
+Spiral is not affiliated.
