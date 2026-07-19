@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { WallpaperTile } from "../components/WallpaperTile";
 import { useDebounce } from "../hooks/useDebounce";
-import { errorCopy, errorNeedsSettings, SOURCES } from "../sources";
+import { errorCopy, wallhaven } from "../sources";
 import type { Wallpaper } from "../sources/types";
 
-// Wallhaven-only category filters — other sources have no category axis.
 const CHIPS = [
   { label: "Toplist", categories: "111" },
   { label: "General", categories: "100" },
@@ -12,17 +11,12 @@ const CHIPS = [
   { label: "People", categories: "001" },
 ] as const;
 
-// The strictest source limit (Wallhaven, ~45 requests/minute) sets the pace.
+// Wallhaven allows ~45 requests/minute — debounce typing well below that.
 const SEARCH_DEBOUNCE_MS = 500;
 
 type Status = "idle" | "loading" | "ready" | "error";
 
-interface BrowseProps {
-  onOpenSettings: () => void;
-}
-
-export function Browse({ onOpenSettings }: BrowseProps) {
-  const [sourceIndex, setSourceIndex] = useState(0);
+export function Browse() {
   const [query, setQuery] = useState("");
   const [chipIndex, setChipIndex] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
@@ -31,7 +25,6 @@ export function Browse({ onOpenSettings }: BrowseProps) {
   const [lastPage, setLastPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string>();
-  const [fixInSettings, setFixInSettings] = useState(false);
   // Privacy pillar: no network until the user acts.
   const [touched, setTouched] = useState(false);
   const requestId = useRef(0);
@@ -77,14 +70,12 @@ export function Browse({ onOpenSettings }: BrowseProps) {
     e.preventDefault();
   }
 
-  const active = SOURCES[sourceIndex];
-
   useEffect(() => {
     if (!touched) return;
     const id = ++requestId.current;
     setStatus("loading");
     setError(undefined);
-    active.api
+    wallhaven
       .search({
         query: debouncedQuery,
         categories: CHIPS[chipIndex].categories,
@@ -100,18 +91,17 @@ export function Browse({ onOpenSettings }: BrowseProps) {
       })
       .catch((e: unknown) => {
         if (id !== requestId.current) return;
-        setError(errorCopy(e, active.label));
-        setFixInSettings(errorNeedsSettings(e));
+        setError(errorCopy(e));
         setStatus("error");
       });
-  }, [debouncedQuery, chipIndex, sourceIndex, touched]);
+  }, [debouncedQuery, chipIndex, touched]);
 
   async function loadMore() {
     const id = requestId.current;
     setLoadingMore(true);
     setError(undefined);
     try {
-      const result = await active.api.search({
+      const result = await wallhaven.search({
         query: debouncedQuery,
         categories: CHIPS[chipIndex].categories,
         sorting: debouncedQuery ? "relevance" : "toplist",
@@ -122,7 +112,7 @@ export function Browse({ onOpenSettings }: BrowseProps) {
       setPageNum(result.page);
       setLastPage(result.lastPage);
     } catch (e: unknown) {
-      if (id === requestId.current) setError(errorCopy(e, active.label));
+      if (id === requestId.current) setError(errorCopy(e));
     } finally {
       setLoadingMore(false);
     }
@@ -143,43 +133,19 @@ export function Browse({ onOpenSettings }: BrowseProps) {
         }}
       />
 
-      <div className="browse__filters">
-        <div className="segmented" role="group" aria-label="Wallpaper source">
-          {SOURCES.map((s, i) => (
-            <button
-              key={s.name}
-              aria-pressed={i === sourceIndex}
-              className={
-                i === sourceIndex
-                  ? "segmented__option segmented__option--active"
-                  : "segmented__option"
-              }
-              onClick={() => {
-                setSourceIndex(i);
-                setTouched(true);
-              }}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {active.name === "wallhaven" && (
-          <div className="browse__chips">
-            {CHIPS.map((chip, i) => (
-              <button
-                key={chip.label}
-                className={i === chipIndex && touched ? "chip chip--active" : "chip"}
-                onClick={() => {
-                  setChipIndex(i);
-                  setTouched(true);
-                }}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-        )}
+      <div className="browse__chips">
+        {CHIPS.map((chip, i) => (
+          <button
+            key={chip.label}
+            className={i === chipIndex && touched ? "chip chip--active" : "chip"}
+            onClick={() => {
+              setChipIndex(i);
+              setTouched(true);
+            }}
+          >
+            {chip.label}
+          </button>
+        ))}
       </div>
 
       {status === "idle" && (
@@ -196,7 +162,7 @@ export function Browse({ onOpenSettings }: BrowseProps) {
       {status === "loading" && (
         <section className="browse__empty" aria-label="Loading">
           <span className="browse__empty-eyebrow">Browse</span>
-          <p className="browse__empty-copy">Fetching from {active.label}…</p>
+          <p className="browse__empty-copy">Fetching from Wallhaven…</p>
         </section>
       )}
 
@@ -204,11 +170,6 @@ export function Browse({ onOpenSettings }: BrowseProps) {
         <section className="browse__empty" aria-label="Search failed" role="alert">
           <span className="browse__empty-eyebrow">Problem</span>
           <p className="browse__empty-copy">{error}</p>
-          {fixInSettings && (
-            <button className="btn-glass btn-glass--secondary" onClick={onOpenSettings}>
-              Open Settings
-            </button>
-          )}
         </section>
       )}
 
@@ -217,7 +178,7 @@ export function Browse({ onOpenSettings }: BrowseProps) {
           <span className="browse__empty-eyebrow">Browse</span>
           <h1 className="browse__empty-title">No results.</h1>
           <p className="browse__empty-copy">
-            Nothing on {active.label} matches “{debouncedQuery}”. Try a broader
+            Nothing on Wallhaven matches “{debouncedQuery}”. Try a broader
             search.
           </p>
         </section>
@@ -227,7 +188,7 @@ export function Browse({ onOpenSettings }: BrowseProps) {
         <div className="browse__scroll">
           <div className="browse__grid" role="list" ref={gridRef} onKeyDown={onGridKeyDown}>
             {items.map((wallpaper) => (
-              <WallpaperTile key={wallpaper.id} wallpaper={wallpaper} source={active.api} />
+              <WallpaperTile key={wallpaper.id} wallpaper={wallpaper} source={wallhaven} />
             ))}
           </div>
           {error && (

@@ -13,10 +13,6 @@ pub struct Settings {
     pub launch_at_login: bool,
     pub fit_mode: FitMode,
     pub first_run_completed: bool,
-    /// Source API keys. Free-tier, client-side keys — treated as public
-    /// (stated in Settings); stored only in this local file.
-    pub unsplash_key: String,
-    pub pexels_key: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -33,8 +29,6 @@ impl Default for Settings {
             launch_at_login: false, // off by default — stated in Settings
             fit_mode: FitMode::Fill,
             first_run_completed: false,
-            unsplash_key: String::new(),
-            pexels_key: String::new(),
         }
     }
 }

@@ -2,8 +2,8 @@
 //!
 //! All network traffic goes through here (Rust), never the webview.
 //! Errors are returned as short string codes ("offline", "rate_limited",
-//! "bad_response", "bad_key", "needs_key", "download_failed", "bad_image")
-//! that the frontend maps to brand copy.
+//! "bad_response", "download_failed", "bad_image") that the frontend maps
+//! to brand copy.
 
 use serde::Serialize;
 

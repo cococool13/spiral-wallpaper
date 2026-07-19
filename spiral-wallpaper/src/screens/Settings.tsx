@@ -16,34 +16,6 @@ const FIT_MODES: { value: FitMode; label: string }[] = [
   { value: "center", label: "Center" },
 ];
 
-interface KeyFieldProps {
-  label: string;
-  value: string;
-  onCommit: (value: string) => void;
-}
-
-/** API-key input — commits on blur so we don't write the settings file per keystroke. */
-function KeyField({ label, value, onCommit }: KeyFieldProps) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  return (
-    <input
-      type="text"
-      className="settings__key"
-      aria-label={label}
-      placeholder="paste key"
-      spellCheck={false}
-      autoComplete="off"
-      value={draft}
-      onChange={(e) => setDraft(e.currentTarget.value)}
-      onBlur={() => {
-        const next = draft.trim();
-        if (next !== value) onCommit(next);
-      }}
-    />
-  );
-}
-
 export function Settings() {
   const [settings, setLocal] = useState<AppSettings>();
   const [cacheBytes, setCacheBytes] = useState<number>();
@@ -138,52 +110,8 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="settings__row">
-        <div>
-          <h2 className="settings__label">Sources</h2>
-          <p className="settings__desc">
-            Wallhaven is active. Unsplash{" "}
-            {settings.unsplashKey ? "is active" : "needs a key"}. Pexels{" "}
-            {settings.pexelsKey ? "is active" : "needs a key"}. Results are
-            never mixed across sources.
-          </p>
-        </div>
-      </section>
-
-      <section className="settings__row">
-        <div>
-          <h2 className="settings__label">Unsplash API key</h2>
-          <p className="settings__desc">
-            Free from unsplash.com/developers. Stored only on this computer,
-            sent only to Unsplash. Free-tier keys are extractable from any
-            client app, so use one with nothing attached to it.
-          </p>
-        </div>
-        <KeyField
-          label="Unsplash API key"
-          value={settings.unsplashKey}
-          onCommit={(v) => update({ unsplashKey: v })}
-        />
-      </section>
-
-      <section className="settings__row">
-        <div>
-          <h2 className="settings__label">Pexels API key</h2>
-          <p className="settings__desc">
-            Free from pexels.com/api. Stored only on this computer, sent only
-            to Pexels. Same rule: free-tier keys only.
-          </p>
-        </div>
-        <KeyField
-          label="Pexels API key"
-          value={settings.pexelsKey}
-          onCommit={(v) => update({ pexelsKey: v })}
-        />
-      </section>
-
       <p className="settings__attribution">
-        Wallpapers from Wallhaven, Unsplash, and Pexels. Spiral is not
-        affiliated with any of them.
+        Wallpapers from Wallhaven. Spiral is not affiliated.
       </p>
     </main>
   );

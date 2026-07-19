@@ -1,10 +1,8 @@
 mod cache;
 mod net;
-mod pexels;
 mod setter;
 mod settings;
 mod smoke;
-mod unsplash;
 mod wallhaven;
 
 use settings::{Settings, SettingsState};
@@ -16,31 +14,13 @@ pub struct Http(pub reqwest::Client);
 
 #[tauri::command]
 async fn search_wallpapers(
-    app: AppHandle,
     http: State<'_, Http>,
-    source: String,
     query: String,
     categories: String,
     sorting: String,
     page: u32,
 ) -> Result<net::SearchPage, String> {
-    // Keyed sources need their key present; the error copy names the fix.
-    let key = |get: fn(&Settings) -> &String| -> Result<String, String> {
-        let settings = app.state::<SettingsState>();
-        let settings = settings.0.lock().unwrap();
-        let key = get(&settings).trim().to_owned();
-        if key.is_empty() {
-            Err("needs_key".into())
-        } else {
-            Ok(key)
-        }
-    };
-    match source.as_str() {
-        "wallhaven" => wallhaven::search(&http.0, &query, &categories, &sorting, page).await,
-        "unsplash" => unsplash::search(&http.0, &key(|s| &s.unsplash_key)?, &query, page).await,
-        "pexels" => pexels::search(&http.0, &key(|s| &s.pexels_key)?, &query, page).await,
-        _ => Err("bad_response".into()),
-    }
+    wallhaven::search(&http.0, &query, &categories, &sorting, page).await
 }
 
 #[tauri::command]

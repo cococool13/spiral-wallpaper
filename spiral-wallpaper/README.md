@@ -4,10 +4,8 @@ A free, privacy-first, super-lightweight desktop wallpaper app for macOS and
 Windows. Click a wallpaper — it downloads and applies. The app quits when you
 close the window; nothing keeps running in the background.
 
-- **Sources:** Wallhaven (no key needed), plus Unsplash and Pexels with your
-  own free API keys, entered in Settings. One source active at a time — results
-  are never blended. Keys live only in your local settings file and are treated
-  as public (free-tier keys only).
+- **Source:** Wallhaven, no key needed. The source sits behind a
+  `WallpaperSource` interface so more free sources can be added later.
 - **Privacy:** no account, no analytics, no telemetry. Zero network requests
   until you search or apply. All network calls happen in the Rust core, never
   the webview.
@@ -34,10 +32,9 @@ the committed installer artwork from the brand tokens (Python 3 + Pillow).
 - `src/` — React UI. Sources sit behind the `WallpaperSource` interface in
   `src/sources/`.
 - `src-tauri/src/` — Rust core: `net.rs`/`cache.rs` (shared HTTP + disk cache,
-  image-validated), `wallhaven.rs`/`unsplash.rs`/`pexels.rs` (API clients),
-  `setter.rs` (native wallpaper APIs), `settings.rs`.
+  image-validated), `wallhaven.rs` (API client), `setter.rs` (native wallpaper
+  APIs), `settings.rs`.
 - All colors come from `src/styles/tokens.css`; the build fails on hex values
   anywhere else.
 
-Wallpapers from Wallhaven, Unsplash, and Pexels. Spiral is not affiliated with
-any of them.
+Wallpapers from Wallhaven. Spiral is not affiliated.

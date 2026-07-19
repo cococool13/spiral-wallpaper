@@ -74,13 +74,6 @@
   color: var(--stl-02);
 }
 
-.browse__filters {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--unit) * 3);
-  flex-wrap: wrap;
-}
-
 .browse__chips {
   display: flex;
   gap: var(--unit);
@@ -434,22 +427,6 @@
 .toggle--on .toggle__knob {
   transform: translateX(calc(var(--unit) * 3 - 2px));
   background: var(--conc-01);
-}
-
-.settings__key {
-  width: calc(var(--unit) * 40);
-  height: calc(var(--unit) * 6);
-  padding: 0 calc(var(--unit) * 2);
-  /* conc-01, not conc-02: the stl-02 placeholder needs 4.5:1 (AA). */
-  background: var(--conc-01);
-  border: 1px solid var(--conc-03);
-  border-radius: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.settings__key::placeholder {
-  color: var(--stl-02);
 }
 
 /* Segmented control — flat concrete, like chips. */

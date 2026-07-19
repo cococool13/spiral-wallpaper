@@ -10,8 +10,6 @@ interface MockSettings {
   launchAtLogin: boolean;
   fitMode: string;
   firstRunCompleted: boolean;
-  unsplashKey: string;
-  pexelsKey: string;
 }
 
 const settings: MockSettings = {
@@ -19,14 +17,12 @@ const settings: MockSettings = {
   fitMode: "fill",
   // Start at first-run so the whole flow is reviewable; flip via UI.
   firstRunCompleted: false,
-  unsplashKey: "",
-  pexelsKey: "",
 };
 
-function searchPage(source: string, pageNum: number) {
+function searchPage(pageNum: number) {
   return {
     items: Array.from({ length: 24 }, (_, i) => {
-      const seed = `${source}-${pageNum}-${i}`;
+      const seed = `w-${pageNum}-${i}`;
       return {
         id: seed,
         resolution: i % 3 === 0 ? "3840x2160" : "2560x1440",
@@ -48,10 +44,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   },
   search_wallpapers: async (args) => {
     await delay(450); // visible loading state
-    const source = args.source as string;
-    if (source === "unsplash" && !settings.unsplashKey) throw "needs_key";
-    if (source === "pexels" && !settings.pexelsKey) throw "needs_key";
-    return searchPage(source, (args.page as number) ?? 1);
+    return searchPage((args.page as number) ?? 1);
   },
   cache_thumb: (args) => args.url,
   apply_wallpaper: async () => {

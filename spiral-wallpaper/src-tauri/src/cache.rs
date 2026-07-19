@@ -1,6 +1,6 @@
 //! On-disk caches in app-data: thumbnails (LRU-capped) and the currently
-//! applied wallpaper. Source-agnostic — ids arrive already prefixed per
-//! source ("w-…", "u-…", "p-…") so they can never collide.
+//! applied wallpaper. Source-agnostic; ids arrive prefixed ("w-…") so a
+//! future second source could never collide with Wallhaven's cache.
 
 use crate::net::fetch_bytes;
 use std::fs;
