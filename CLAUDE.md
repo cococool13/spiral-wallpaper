@@ -1,6 +1,6 @@
 # Spiral Wallpaper — build brief for Claude Code
 
-You are building **Spiral Wallpaper**, the first app of the Spiral brand — a free, privacy-first, super-lightweight desktop wallpaper app for macOS and Windows. It is a clean GUI over free wallpaper sources (Wallhaven, plus optional Unsplash and Pexels with user-supplied free keys). The user clicks a wallpaper, it downloads and applies automatically. The app quits when the window closes — nothing keeps running in the background.
+You are building **Spiral Wallpaper**, the first app of the Spiral brand — a free, privacy-first, super-lightweight desktop wallpaper app for macOS and Windows. It is a clean GUI over Wallhaven's free public API. The user clicks a wallpaper, it downloads and applies automatically. The app quits when the window closes — nothing keeps running in the background.
 
 Work milestone by milestone. After each milestone, stop, summarize what you built, and wait for approval before continuing.
 
@@ -68,19 +68,18 @@ Spiral's identity: "complex but simple." Modern industrial — a concrete wareho
 - No system tray and no background process: closing the window quits the app. (Close-to-tray shipped in v1 and was removed in the refinement pass — a wallpaper setter has no reason to keep running.)
 - No analytics, no telemetry, no accounts, no auto-update phone-home in v1. The only network calls are to wallpaper sources, made when the user acts.
 
-## 3. Data sources
+## 3. Data source
 
 - **Wallhaven API v1** (`https://wallhaven.cc/api/v1/search`): free, no key required for SFW content. Respect the ~45 req/min rate limit; debounce search input.
 - Default query: `purity=100` (SFW only), `categories=111`, sorting `toplist`. No NSFW support at all in v1 — do not add the API-key path.
 - Cache thumbnails on disk (Tauri app-data dir) with an LRU cap (state the cap in Settings: "Thumbnail cache: 200 MB max. Clear now.").
-- **Unsplash + Pexels** (added in the refinement pass): each needs a free user-supplied API key, entered in Settings and stored only in the local settings file. Keys are treated as public — free-tier only, never committed, never compiled into the binary. Results are never blended across sources; the active source is always visible.
-- Architecture note: sources sit behind a `WallpaperSource` interface — three implementations now (Wallhaven, Unsplash, Pexels) over shared Rust `net`/`cache` modules; the UI never changes when one is added.
+- Architecture note: the source sits behind a `WallpaperSource` interface over shared Rust `net`/`cache` modules, so more free sources can be added without touching UI. (Unsplash and Pexels shipped briefly in the refinement pass and were removed — on hold for now.)
 
 ## 4. App structure (v1 scope)
 
 Three screens, no more:
-1. **Browse** — search bar (mono placeholder text), source switcher (Wallhaven / Unsplash / Pexels — one active at a time), category chips (Wallhaven only), responsive thumbnail grid. Click a thumbnail → glass "Apply wallpaper" button on hover/focus. Applying shows a progress state on the tile itself (download → applied ✓).
-2. **Settings** — one page, everything stated: launch at login (off by default), cache size + clear button, wallpaper fit mode (fill/fit/center), sources row with per-source status and API-key fields, source attribution ("Wallpapers from Wallhaven, Unsplash, and Pexels. Spiral is not affiliated with any of them.").
+1. **Browse** — search bar (mono placeholder text), category chips, responsive thumbnail grid. Click a thumbnail → glass "Apply wallpaper" button on hover/focus. Applying shows a progress state on the tile itself (download → applied ✓).
+2. **Settings** — one page, everything stated: launch at login (off by default), cache size + clear button, wallpaper fit mode (fill/fit/center), source attribution ("Wallpapers from Wallhaven. Spiral is not affiliated.").
 3. **First run** — a single screen, not a carousel: mark, one sentence ("Click a wallpaper. It downloads and applies. That's it."), one glass button ("Start browsing"). No account. No email. Nothing to configure.
 
 Static wallpapers only. No animated/live wallpapers — explicitly out of scope.

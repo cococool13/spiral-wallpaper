@@ -8,7 +8,7 @@ product
 People on macOS or Windows who want a good desktop wallpaper without ceremony. They are in a 30-second errand, not a workflow: open, browse, click, done. No accounts, no configuration appetite. Some are privacy-conscious and chose Spiral specifically because it makes no hidden network calls.
 
 ## Product Purpose
-Spiral Wallpaper is the first app of the Spiral brand: a free, privacy-first, super-lightweight wallpaper setter over free sources (Wallhaven; Unsplash and Pexels with user-supplied keys). Click a wallpaper, it downloads and applies. The app quits when the window closes. Success = the errand completes in under a minute and the user trusts what the app did, because everything it does is stated on-screen.
+Spiral Wallpaper is the first app of the Spiral brand: a free, privacy-first, super-lightweight wallpaper setter over Wallhaven's free API. Click a wallpaper, it downloads and applies. The app quits when the window closes. Success = the errand completes in under a minute and the user trusts what the app did, because everything it does is stated on-screen.
 
 ## Brand Personality
 "Complex but simple." Modern industrial: a concrete warehouse — concrete floors, few walls, metal beams. Sophisticated, professional, calm. Three pillars: privacy, ease of use, super lightweight. Voice states, never sells ("No account needed." "Deletes 1.2 GB of caches. Nothing else.").
