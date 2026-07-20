@@ -30,9 +30,18 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRENERENkUwNUNEMTZEQQpSV1RhRnMwRmJ0M1VCTVBhZU1jQ3JoU1BLMkN2M3lweUgvblNXcjh3VVVLcTc0dHFSN0xxYXRNYQo=",
+      "endpoints": [
+        "https://github.com/cococool13/spiral-wallpaper/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "macOS": {
       "signingIdentity": "Developer ID Application: COHEN BENJAMIN COOLIOGE (CU8NTJWQ43)",
       "hardenedRuntime": true,

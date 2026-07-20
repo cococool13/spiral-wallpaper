@@ -10,6 +10,7 @@ interface MockSettings {
   launchAtLogin: boolean;
   fitMode: string;
   firstRunCompleted: boolean;
+  autoUpdateCheck: boolean;
 }
 
 const settings: MockSettings = {
@@ -17,7 +18,15 @@ const settings: MockSettings = {
   fitMode: "fill",
   // Start at first-run so the whole flow is reviewable; flip via UI.
   firstRunCompleted: false,
+  autoUpdateCheck: true,
 };
+
+// Set `window.__SPIRAL_MOCK_UPDATE__ = true` in the console (before checking)
+// to exercise the update-available flow in the browser.
+const mockUpdate = () =>
+  (window as unknown as Record<string, unknown>).__SPIRAL_MOCK_UPDATE__
+    ? { rid: 1, available: true, currentVersion: "1.0.0", version: "1.1.0" }
+    : null;
 
 function searchPage(pageNum: number) {
   return {
@@ -52,6 +61,17 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   },
   thumb_cache_size: () => 37_400_000,
   clear_thumb_cache: () => undefined,
+  "plugin:app|version": () => "1.0.0",
+  "plugin:updater|check": async () => {
+    await delay(600);
+    return mockUpdate();
+  },
+  "plugin:updater|download_and_install": async () => {
+    await delay(1800);
+  },
+  "plugin:process|restart": () => {
+    window.location.reload();
+  },
 };
 
 (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {

@@ -13,6 +13,9 @@ pub struct Settings {
     pub launch_at_login: bool,
     pub fit_mode: FitMode,
     pub first_run_completed: bool,
+    /// One request to GitHub when the app opens, stated in Settings. Off
+    /// means Spiral never checks on its own.
+    pub auto_update_check: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -29,6 +32,7 @@ impl Default for Settings {
             launch_at_login: false, // off by default — stated in Settings
             fit_mode: FitMode::Fill,
             first_run_completed: false,
+            auto_update_check: true, // stated in Settings; one request on open
         }
     }
 }

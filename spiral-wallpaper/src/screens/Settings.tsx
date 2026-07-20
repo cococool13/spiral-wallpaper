@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { Toggle } from "../components/Toggle";
 import {
   clearThumbCache,
@@ -9,6 +10,7 @@ import {
   type AppSettings,
   type FitMode,
 } from "../settings/api";
+import { checkForUpdate, installUpdate, type Update } from "../updates";
 
 const FIT_MODES: { value: FitMode; label: string }[] = [
   { value: "fill", label: "Fill" },
@@ -16,10 +18,59 @@ const FIT_MODES: { value: FitMode; label: string }[] = [
   { value: "center", label: "Center" },
 ];
 
-export function Settings() {
+type UpdatePhase = "idle" | "checking" | "current" | "found" | "installing" | "failed";
+
+interface SettingsProps {
+  /** An update the launch check already found, if any. */
+  knownUpdate: Update | null;
+  onUpdateFound: (update: Update) => void;
+}
+
+export function Settings({ knownUpdate, onUpdateFound }: SettingsProps) {
   const [settings, setLocal] = useState<AppSettings>();
   const [cacheBytes, setCacheBytes] = useState<number>();
   const [error, setError] = useState<string>();
+  const [version, setVersion] = useState("");
+  const [foundUpdate, setFoundUpdate] = useState<Update | null>(knownUpdate);
+  const [phase, setPhase] = useState<UpdatePhase>(knownUpdate ? "found" : "idle");
+
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
+
+  // The launch check can resolve while this screen is open — adopt its result.
+  useEffect(() => {
+    if (knownUpdate && !foundUpdate) {
+      setFoundUpdate(knownUpdate);
+      setPhase("found");
+    }
+  }, [knownUpdate, foundUpdate]);
+
+  async function runCheck() {
+    setPhase("checking");
+    try {
+      const found = await checkForUpdate();
+      if (found) {
+        setFoundUpdate(found);
+        onUpdateFound(found);
+        setPhase("found");
+      } else {
+        setPhase("current");
+      }
+    } catch {
+      setPhase("failed");
+    }
+  }
+
+  async function runInstall() {
+    if (!foundUpdate) return;
+    setPhase("installing");
+    try {
+      await installUpdate(foundUpdate); // relaunches on success
+    } catch {
+      setPhase("failed");
+    }
+  }
 
   useEffect(() => {
     getSettings().then(setLocal).catch(() => {});
@@ -108,6 +159,55 @@ export function Settings() {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="settings__row">
+        <div>
+          <h2 className="settings__label">Automatic update check</h2>
+          <p className="settings__desc">
+            {settings.autoUpdateCheck
+              ? "When Spiral opens, it asks GitHub once whether a newer version exists. Nothing else is sent."
+              : "Off. Spiral never checks on its own. Use the button below."}
+          </p>
+        </div>
+        <Toggle
+          checked={settings.autoUpdateCheck}
+          label="Automatic update check"
+          onChange={(v) => update({ autoUpdateCheck: v })}
+        />
+      </section>
+
+      <section className="settings__row">
+        <div>
+          <h2 className="settings__label">Updates</h2>
+          <p className="settings__desc" aria-live="polite">
+            {phase === "idle" && `Version ${version}.`}
+            {phase === "checking" && `Version ${version}. Asking GitHub…`}
+            {phase === "current" && `Version ${version}. This is the latest version.`}
+            {phase === "found" &&
+              `Version ${version}. ${foundUpdate?.version} is available. It downloads, installs, and restarts Spiral.`}
+            {phase === "installing" && "Downloading and installing. Spiral restarts when it's done."}
+            {phase === "failed" &&
+              "The update check didn't reach GitHub. Check your network, then try again."}
+          </p>
+        </div>
+        {phase === "found" || phase === "installing" ? (
+          <button
+            className="btn-glass btn-glass--primary"
+            onClick={runInstall}
+            disabled={phase === "installing"}
+          >
+            {phase === "installing" ? "Installing…" : "Update and restart"}
+          </button>
+        ) : (
+          <button
+            className="btn-glass btn-glass--secondary"
+            onClick={runCheck}
+            disabled={phase === "checking"}
+          >
+            {phase === "checking" ? "Checking…" : "Check for updates"}
+          </button>
+        )}
       </section>
 
       <p className="settings__attribution">

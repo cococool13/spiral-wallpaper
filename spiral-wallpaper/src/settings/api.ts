@@ -6,6 +6,7 @@ export interface AppSettings {
   launchAtLogin: boolean;
   fitMode: FitMode;
   firstRunCompleted: boolean;
+  autoUpdateCheck: boolean;
 }
 
 export function getSettings(): Promise<AppSettings> {

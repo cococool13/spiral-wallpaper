@@ -47,6 +47,17 @@
   color: var(--ink-01);
 }
 
+/* Update available — the red dot device, next to the Settings nav item. */
+.chrome__update-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: var(--unit);
+  border-radius: var(--radius-ctl);
+  background: var(--hlx-01);
+  vertical-align: 2px;
+}
+
 /* Browse */
 .browse {
   flex: 1;

@@ -4,16 +4,27 @@ import { Browse } from "./screens/Browse";
 import { FirstRun } from "./screens/FirstRun";
 import { Settings } from "./screens/Settings";
 import { getSettings, setSettings, type AppSettings } from "./settings/api";
+import { checkForUpdate, type Update } from "./updates";
 
 type Screen = "browse" | "settings";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("browse");
   const [boot, setBoot] = useState<AppSettings>();
+  const [update, setUpdate] = useState<Update | null>(null);
 
   useEffect(() => {
     getSettings().then(setBoot).catch(() => {});
   }, []);
+
+  // The one automatic network request Spiral makes, and only when the
+  // Settings toggle says so: a version check against GitHub on open.
+  useEffect(() => {
+    if (!boot?.firstRunCompleted || !boot.autoUpdateCheck) return;
+    checkForUpdate()
+      .then((found) => found && setUpdate(found))
+      .catch(() => {}); // offline is fine — Settings has a manual check
+  }, [boot?.firstRunCompleted, boot?.autoUpdateCheck]);
 
   if (!boot) return <div className="app" />;
 
@@ -55,6 +66,7 @@ function App() {
             onClick={() => setScreen("settings")}
           >
             Settings
+            {update && <span className="chrome__update-dot" aria-label="Update available" />}
           </button>
         </nav>
       </header>
@@ -63,7 +75,7 @@ function App() {
       <div className={screen === "browse" ? "screen" : "screen screen--hidden"}>
         <Browse />
       </div>
-      {screen === "settings" && <Settings />}
+      {screen === "settings" && <Settings knownUpdate={update} onUpdateFound={setUpdate} />}
     </div>
   );
 }

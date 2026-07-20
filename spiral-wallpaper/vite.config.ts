@@ -8,6 +8,12 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [react()],
 
+  build: {
+    // Never inline assets as data: URIs — the app CSP allows only 'self'
+    // images (the inlined brand mark shipped invisible in v1.0.0).
+    assetsInlineLimit: 0,
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
