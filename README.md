@@ -34,14 +34,18 @@ thumbnail cache is capped at 200 MB and says so in Settings.
 
 ## Download
 
-There is no packaged release yet. Until v1.0.0:
+Get the current version from the
+[latest release](https://github.com/cococool13/spiral-wallpaper/releases/latest):
 
-- **Windows** - every push builds installers in CI. Grab the `spiral-windows`
-  artifact (NSIS `.exe` + `.msi`, ~4.5 MB) from the latest green run on the
-  [Actions tab](https://github.com/cococool13/spiral-wallpaper/actions).
-  The build is unsigned, so SmartScreen warns on first run.
-- **macOS** - build from source below (produces a `.app` and a `.dmg`).
-  Unsigned for now; right-click, then Open on first launch.
+- **macOS 13+** - `Spiral_1.0.0_universal.dmg`. Signed with a Developer ID
+  and notarized by Apple; universal binary, runs native on Apple Silicon and
+  Intel. Open the DMG, drag Spiral into Applications. That's the whole
+  install.
+- **Windows 10+** - `Spiral_1.0.0_x64-setup.exe` (or the `.msi`). Not yet
+  code-signed, so SmartScreen warns on first run: More info, then Run anyway.
+
+SHA-256 checksums for every file are attached to the release as
+`SHA256SUMS.txt`.
 
 ## Build from source
 
