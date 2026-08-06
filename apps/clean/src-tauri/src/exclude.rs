@@ -223,8 +223,38 @@ impl ExclusionList {
     // reading side already refuses anything this would not write — the two
     // halves of the truncation defect were fixed together, and splitting them
     // across milestones would leave the reader guarding against a writer that
+    /// The excluded paths, in the order they were added.
+    pub fn entries(&self) -> &[PathBuf] {
+        &self.paths
+    }
+
+    /// Add a path, or say why it would change nothing.
+    ///
+    /// `covering` rather than a plain equality check, so adding a file that
+    /// already sits under an excluded folder is refused as the no-op it is
+    /// rather than growing the list with an entry that protects nothing new —
+    /// and the refusal carries the entry responsible, which is the only part
+    /// a user can act on.
+    pub fn add(&mut self, path: PathBuf) -> Result<(), String> {
+        if let Some(coverage) = self.covering(&path) {
+            return Err(coverage.reason());
+        }
+        self.paths.push(path);
+        Ok(())
+    }
+
+    /// Remove an entry by exact path. Returns false when it was not there.
+    ///
+    /// Exact, deliberately: removing "everything beneath this" would take
+    /// entries the user did not name. Un-excluding is the direction where
+    /// being too clever costs protection.
+    pub fn remove(&mut self, path: &Path) -> bool {
+        let before = self.paths.len();
+        self.paths.retain(|entry| entry != path);
+        self.paths.len() != before
+    }
+
     // no longer exists.
-    #[allow(dead_code)]
     pub fn save(&self, dir: &Path) -> std::io::Result<()> {
         // Refused here as well as in `load`, so a malformed entry cannot
         // reach disk in the first place. Catching it only on the way back in
@@ -284,6 +314,53 @@ pub fn load(dir: &Path) -> Result<ExclusionList, String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ExclusionList::default()),
         Err(e) => Err(unreadable(&path, &e.to_string())),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
+
+fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    use tauri::Manager;
+    app.path()
+        .app_config_dir()
+        .map_err(|e| format!("Could not locate Spiral Clean's settings folder: {e}. Reopen the app."))
+}
+
+#[tauri::command]
+pub fn exclusions_list(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let dir = config_dir(&app)?;
+    Ok(load(&dir)?
+        .entries()
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect())
+}
+
+/// Add a path to the exclusion list.
+///
+/// Read, mutate, write — never a blind append. `load` refuses a malformed
+/// file and `save` refuses a malformed entry, so going through both keeps the
+/// one guarantee that matters: a list Spiral Clean cannot read is a list that
+/// stops every removal, and it must never be this app that wrote it.
+#[tauri::command]
+pub fn exclusions_add(app: tauri::AppHandle, path: String) -> Result<Vec<String>, String> {
+    let dir = config_dir(&app)?;
+    let mut list = load(&dir)?;
+    list.add(PathBuf::from(&path))?;
+    list.save(&dir).map_err(|e| e.to_string())?;
+    exclusions_list(app)
+}
+
+#[tauri::command]
+pub fn exclusions_remove(app: tauri::AppHandle, path: String) -> Result<Vec<String>, String> {
+    let dir = config_dir(&app)?;
+    let mut list = load(&dir)?;
+    if !list.remove(Path::new(&path)) {
+        return Err(format!("{path} is not on your exclusion list."));
+    }
+    list.save(&dir).map_err(|e| e.to_string())?;
+    exclusions_list(app)
 }
 
 /// States the problem and a next step, per the project's error-copy rule.
@@ -420,6 +497,63 @@ mod tests {
         assert!(list.covers(Path::new("/tmp/x")));
         assert!(list.covers(Path::new("/tmp")));
         assert!(!list.covers(Path::new("/tmp/xylophone")));
+    }
+
+    #[test]
+    fn adding_a_path_that_is_already_covered_is_refused_with_the_reason() {
+        // Not merely "already there": adding a *file inside* an excluded
+        // folder protects nothing new, and the message names the entry
+        // responsible so the user can act on it.
+        let mut list = new(vec![PathBuf::from("/tmp/spiral-keep")]);
+        let err = list.add(PathBuf::from("/tmp/spiral-keep/inner.txt")).unwrap_err();
+        assert!(err.contains("/tmp/spiral-keep"), "{err}");
+        assert_eq!(list.entries().len(), 1, "the list did not grow");
+    }
+
+    #[test]
+    fn adding_a_new_path_keeps_both() {
+        let mut list = new(vec![PathBuf::from("/tmp/spiral-a")]);
+        assert!(list.add(PathBuf::from("/tmp/spiral-b")).is_ok());
+        assert_eq!(list.entries().len(), 2);
+    }
+
+    #[test]
+    fn removing_is_exact_and_never_takes_a_neighbour() {
+        // Un-excluding is the direction where being clever costs protection:
+        // removing "everything beneath this" would drop entries the user
+        // never named.
+        let mut list = new(vec![
+            PathBuf::from("/tmp/spiral-keep"),
+            PathBuf::from("/tmp/spiral-keep-too"),
+        ]);
+        assert!(list.remove(Path::new("/tmp/spiral-keep")));
+        assert_eq!(list.entries(), [PathBuf::from("/tmp/spiral-keep-too")]);
+    }
+
+    #[test]
+    fn removing_something_absent_says_so_rather_than_succeeding_quietly() {
+        let mut list = new(vec![PathBuf::from("/tmp/spiral-keep")]);
+        assert!(!list.remove(Path::new("/tmp/not-there")));
+    }
+
+    #[test]
+    fn a_malformed_addition_never_reaches_disk() {
+        // `save` is the validator, and an entry that would block every clean
+        // must be refused before it can. This is the property that makes an
+        // editable list safe to expose in Settings at all.
+        let dir = temp();
+        let mut list = new(vec![]);
+        list.add(PathBuf::from("")).ok();
+        assert!(list.save(dir.path()).is_err(), "an empty entry matches everything");
+        assert!(load(dir.path()).unwrap().entries().is_empty());
+    }
+
+    #[test]
+    fn a_relative_addition_never_reaches_disk() {
+        let dir = temp();
+        let mut list = new(vec![]);
+        list.add(PathBuf::from("relative/path")).ok();
+        assert!(list.save(dir.path()).is_err());
     }
 
     #[test]

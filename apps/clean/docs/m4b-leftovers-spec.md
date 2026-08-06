@@ -8,6 +8,8 @@ M4 shipped uninstall for applications that are still installed. M4b covers what 
 
 1. **An orphan is a bundle-id-shaped entry no discovered app declares.** Only entries whose name is reverse-DNS or `group.<id>` are considered. A plain-name folder like `Slack` is never proposed: a name proves far too little to infer that something is dead. See [the amendment](#amendment-2026-08-05--what-reverse-dns-had-to-mean) for what "reverse-DNS" turned out to have to mean.
 2. **PKG receipts are cut from M4b entirely.** Removing a receipt reclaims no space — it only makes the system forget a package was installed, and a stale receipt is safer than a missing one when an installer next runs. The app's promise is honest reclaimed space, and this delivers none.
+
+   **Resolved 2026-08-06 (post-M7), and this decision stands.** Spiral Clean still never forgets a receipt. What it now does is *list* them, mark the ones whose files are gone, and show the `pkgutil --forget` command for the user to run themselves — the posture already taken for Homebrew casks, system extensions and BTM login items. That closes design-spec decision 21 without reversing a word of the reasoning above: the thing that was wrong was removing receipts, not seeing them.
 3. **Discovery widens by one level, and `com.apple.*` is never proposed.** `apps::discover` also scans one level under `/Applications` and `~/Applications`.
 4. **Leftovers get their own section on the Uninstall screen**, with their own review sheet — satisfying ADR-0007 without forcing two different flows down one path.
 5. **Dropping an app bundle opens the same review sheet picking it from the list opens.** One path to a deletion, not two.

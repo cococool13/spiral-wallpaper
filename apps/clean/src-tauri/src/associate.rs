@@ -148,18 +148,19 @@ fn is_apple_owned(name: &str) -> bool {
 /// True when `bundle_id` is one of Apple's own (`com.apple.*`,
 /// case-insensitive).
 ///
-/// `remove.rs` has its own `is_apple_bundle_id` doing the same check at the
-/// removal boundary, but it is a private `fn` there and this task's brief
-/// forbids editing `remove.rs` to expose it. Duplicated locally rather than
-/// widened across modules — worth sharing (e.g. moving into a common home
-/// both modules can reach) the next time `remove.rs` is opened for other
-/// reasons.
-///
 /// Refusing here, in `associate`, means a spoofed `com.apple.*` app is never
 /// even listed: without this, its items pass discovery and are only denied
 /// later at `remove::execute`, showing the user a list nothing on it can
 /// actually remove.
-fn is_apple_bundle_id(bundle_id: &str) -> bool {
+///
+/// **This is the copy new producers reach for** — `startup` and `lipo` both
+/// use it rather than adding their own. The near-identical function in
+/// `remove.rs` was long recorded as a duplicate to merge away, and the M6
+/// audit concluded the opposite: that one is a *bar at the removal
+/// boundary*, and its own comment argues it must hold independently of
+/// whatever any producer decided. Merging the two would give a security bar
+/// a single point of failure, so the duplication stays, deliberately.
+pub(crate) fn is_apple_bundle_id(bundle_id: &str) -> bool {
     bundle_id.to_lowercase().starts_with("com.apple.")
 }
 

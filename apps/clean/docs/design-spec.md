@@ -29,6 +29,16 @@ Each numbered item was a distinct decision. Where the choice went against the re
 8. **Uninstall depth:** offers to quit a running app; unloads launch agents/daemons and removes login items before deleting; detects system extensions and stops with instructions rather than half-removing them. Admin prompt only when `/Library/LaunchDaemons` is involved.
 9. **Orphan leftovers live in Uninstall, not Clean.** Clean becomes one sentence — regenerable junk, always permanent. Uninstall owns all app removal, installed or not.
 10. **Optimize actions:** 14 total, in three groups. *(Against recommendation of five; Spotlight reindex, snapshot thinning, Bluetooth reset and Launchpad reset were all added at Cohen's direction.)*
+
+    **Amended 2026-08-05, to the eleven M5b actually shipped.** Three were cut, and the reasons differ.
+
+    **`periodic` and Launchpad no longer exist.** `/usr/sbin/periodic` and `/etc/daily|weekly|monthly` are absent on macOS 27, and `Launchpad.app` was removed. Both actions targeted software Apple has deleted. ADR-0008 forbids showing a control that cannot work, so neither ships in any form — this is the staleness failure ADR-0017 named for `diskutil` and `system_profiler` output, arriving instead in the action list itself.
+
+    **The Mail envelope index was cut by choice.** Rebuilding it means deleting inside the user's mail store, which ADR-0005 bars, and it would have been the highest-blast-radius path in the milestone if it were ever wrong.
+
+    **One action changed kind rather than being cut.** Clearing the icon cache *deletes files*, so it is not a command at all: it is a catalog-backed removal through `remove.rs`, per ADR-0018. Hard rule 1 has no Optimize exemption.
+
+    One expectation went the other way. `diskutil verifyVolume /` was assumed to need administrator rights and does not — it completes read-only against the mounted boot volume — so six of the eleven need the prompt rather than seven.
 11. **Costly actions ship unchecked**, with their cost stated in the label. Snapshots use `tmutil thinlocalsnapshots` to free a target amount, never `deletelocalsnapshots`.
 12. **History:** local capped JSON log of every removal — path, size, disposition, timestamp — with an in-app History view and a visible clear control. Never transmitted.
 13. **Sizing:** scan shows logical size as a labeled estimate; the result reports measured volume free-space delta. When they disagree materially, the app says why (usually a local snapshot still holding the blocks).
@@ -40,6 +50,8 @@ Each numbered item was a distinct decision. Where the choice went against the re
 19. **Bluetooth reset is blocked outright** when the active keyboard or pointing device is Bluetooth-transported. Launchpad reset is labeled as permanently discarding a custom arrangement.
 20. **Optimize carries a full Health section** — free space breakdown, SMART status, battery health and cycle count on laptops, uptime, macOS version and model. *(Against recommendation of a compact action-linked strip.)*
 21. **Competitor parity:** App Lipo, disk analyzer, PKG receipts, and drag-and-drop uninstall are all in v1.
+
+    **Annotated 2026-08-06 at M6.** App Lipo ships, and it was put to Cohen first that it should not. Stripping a Mach-O invalidates its code signature; a Developer ID app with the hardened runtime and the `kill` flag — measured on the development machine as `flags=0x12a00(kill,restrict,library-validation,runtime)` — then refuses to launch, with reinstalling as the only local recovery. **That is the same defect this spec's own out-of-scope list gives for cutting `.lproj` stripping**, applied to the signed binary rather than a resource beside it. Cohen chose to ship it with a warning; the risk is his to accept, and [ADR-0019](adr/0019-lipo-modifies-files-in-place.md) records the boundary, the evidence, and the guards that make the warning honest — chiefly that it is stated per app, because an ad-hoc-signed binary loses nothing and a hardened one is destroyed. **PKG receipts closed 2026-08-06:** M4b decision 2 stands — Spiral Clean never forgets a receipt — and `receipts.rs` now inventories them read-only, marks the ones whose files are gone, and shows `pkgutil --forget` for the user to run. Parity by inventory-and-handoff, not by acting.
 22. **Storage is a fourth rail verb**, holding the disk analyzer and App Lipo. Clean stays purely "regenerable junk, permanent"; a stripped binary is not locally regenerable, so Lipo cannot sit under Clean's rule.
 23. **Non-competitor additions:** iOS device backups (in Storage, Trash-backed, listed per device with name and date), the exclusion list (in Settings, enforced in `remove`), and disk usage trend (in History). Xcode simulator runtimes were considered and declined.
 

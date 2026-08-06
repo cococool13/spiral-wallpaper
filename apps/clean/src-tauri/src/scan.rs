@@ -3,7 +3,7 @@ use crate::paths::starts_with_case_insensitive;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CategoryResult {
     pub id: String,
     pub label: String,
@@ -137,10 +137,42 @@ fn longest_prefix_owner(path: &Path, all_roots: &[(&'static str, PathBuf)]) -> O
 /// category would have claimed had it been included, deleting more than the
 /// parent category's own total said it would.
 pub fn scan_attributed_in(home: &Path) -> Vec<CategoryResult> {
+    scan_attributed_streaming(home, &|_| {})
+}
+
+/// As `scan_attributed_in`, calling `on_ready` with each category the moment
+/// it is **final** — and still returning the whole set at the end.
+///
+/// "Final" is the load-bearing word. A category is not done when the first
+/// file lands in it; it is done when every outermost root that could still
+/// contribute to it has been walked. `package-manager-caches` draws from
+/// three unrelated roots (`~/Library/Caches/org.swift.swiftpm`, `~/.gradle`,
+/// `~/.npm`), so emitting it after the first would show a number that then
+/// grew — and hard rule 6 does not permit a size that is neither a labelled
+/// estimate nor a measurement.
+///
+/// So each entry is emitted once, with its true total, as early as that total
+/// can be known. Progress the user can trust, rather than progress that
+/// twitches.
+pub fn scan_attributed_streaming(
+    home: &Path,
+    on_ready: &dyn Fn(&CategoryResult),
+) -> Vec<CategoryResult> {
     let all_roots = expand_all_roots(home);
     let outermost = outermost_roots(&all_roots);
 
+    // Which outermost roots each entry still depends on. An entry whose set
+    // empties has nothing left that could change its total.
+    let mut pending: HashMap<&'static str, usize> = HashMap::new();
+    for (id, root) in &all_roots {
+        if outermost.iter().any(|o| starts_with_case_insensitive(root, o)) {
+            *pending.entry(id).or_insert(0) += 1;
+        }
+    }
+
     let mut by_id: HashMap<&'static str, (u64, usize, Vec<PathBuf>)> = HashMap::new();
+    let mut emitted: Vec<CategoryResult> = Vec::new();
+
     for root in outermost {
         for (path, size) in walk_files(root) {
             if let Some(id) = longest_prefix_owner(&path, &all_roots) {
@@ -150,15 +182,52 @@ pub fn scan_attributed_in(home: &Path) -> Vec<CategoryResult> {
                 bucket.2.push(path);
             }
         }
+
+        // Every entry root under this outermost root is now accounted for.
+        for (id, entry_root) in &all_roots {
+            if !starts_with_case_insensitive(entry_root, root) {
+                continue;
+            }
+            let Some(remaining) = pending.get_mut(id) else { continue };
+            *remaining -= 1;
+            if *remaining > 0 {
+                continue;
+            }
+            pending.remove(id);
+            let (bytes, items, paths) = by_id.remove(id).unwrap_or_default();
+            let entry = catalog::catalog().iter().find(|e| e.id == *id);
+            let label = entry.map(|e| e.label.to_string()).unwrap_or_else(|| (*id).to_string());
+            let result =
+                CategoryResult { id: (*id).to_string(), label, bytes, items, paths };
+            on_ready(&result);
+            emitted.push(result);
+        }
     }
 
-    catalog::catalog()
-        .iter()
-        .map(|entry| {
-            let (bytes, items, paths) = by_id.remove(entry.id).unwrap_or_default();
-            CategoryResult { id: entry.id.to_string(), label: entry.label.to_string(), bytes, items, paths }
-        })
-        .collect()
+    // Anything with no outermost root at all — a catalog entry whose roots
+    // are all missing — is still reported, as an empty result. Silence would
+    // read as "still scanning" forever.
+    for entry in catalog::catalog() {
+        if emitted.iter().any(|r| r.id == entry.id) {
+            continue;
+        }
+        let (bytes, items, paths) = by_id.remove(entry.id).unwrap_or_default();
+        let result = CategoryResult {
+            id: entry.id.to_string(),
+            label: entry.label.to_string(),
+            bytes,
+            items,
+            paths,
+        };
+        on_ready(&result);
+        emitted.push(result);
+    }
+
+    // Catalog order for the returned set, whatever order they finished in.
+    emitted.sort_by_key(|r| {
+        catalog::catalog().iter().position(|e| e.id == r.id).unwrap_or(usize::MAX)
+    });
+    emitted
 }
 
 /// `scan_attributed_in` against the real machine's home. Mirrors
@@ -365,6 +434,89 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let results = scan_attributed_in(home.path());
         assert_eq!(results.len(), crate::catalog::catalog().len());
+    }
+
+    #[test]
+    fn streaming_emits_every_category_exactly_once() {
+        // Silence for a category would read as "still scanning" forever, and
+        // a second emission would double a total on screen.
+        let home = tempfile::tempdir().unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let returned = scan_attributed_streaming(home.path(), &|r| {
+            seen.borrow_mut().push(r.id.clone())
+        });
+
+        let mut emitted = seen.into_inner();
+        let count = emitted.len();
+        emitted.sort();
+        emitted.dedup();
+        assert_eq!(emitted.len(), count, "a category was emitted twice");
+        assert_eq!(count, catalog::catalog().len(), "every category is emitted");
+        assert_eq!(returned.len(), catalog::catalog().len());
+    }
+
+    #[test]
+    fn a_streamed_category_carries_the_same_total_the_batch_reports() {
+        // The property that makes progressive results trustworthy: what is
+        // shown early is what the run ends with, never a number that grows.
+        let home = tempfile::tempdir().unwrap();
+        let caches = home.path().join("Library/Caches");
+        std::fs::create_dir_all(&caches).unwrap();
+        std::fs::write(caches.join("a.bin"), vec![0u8; 4096]).unwrap();
+
+        let streamed = std::cell::RefCell::new(std::collections::HashMap::new());
+        let returned = scan_attributed_streaming(home.path(), &|r| {
+            streamed.borrow_mut().insert(r.id.clone(), r.bytes);
+        });
+
+        let streamed = streamed.into_inner();
+        for result in &returned {
+            assert_eq!(
+                streamed.get(&result.id),
+                Some(&result.bytes),
+                "{} was streamed with a different total",
+                result.id
+            );
+        }
+    }
+
+    #[test]
+    fn a_multi_root_category_is_emitted_only_after_its_last_root() {
+        // `package-manager-caches` draws from three unrelated roots. Emitting
+        // it after the first would show a total that then grew.
+        let home = tempfile::tempdir().unwrap();
+        for root in ["Library/Caches/org.swift.swiftpm", ".gradle/caches", ".npm/_cacache"] {
+            let dir = home.path().join(root);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("f.bin"), vec![0u8; 1000]).unwrap();
+        }
+
+        let streamed = std::cell::RefCell::new(Vec::new());
+        scan_attributed_streaming(home.path(), &|r| {
+            if r.id == "package-manager-caches" {
+                streamed.borrow_mut().push(r.bytes);
+            }
+        });
+
+        let seen = streamed.into_inner();
+        assert_eq!(seen.len(), 1, "emitted once, not once per root");
+        assert_eq!(seen[0], 3000, "and with all three roots counted");
+    }
+
+    #[test]
+    fn streaming_and_batch_agree_completely() {
+        let home = tempfile::tempdir().unwrap();
+        let caches = home.path().join("Library/Caches");
+        std::fs::create_dir_all(caches.join("Google/Chrome")).unwrap();
+        std::fs::write(caches.join("loose.bin"), vec![0u8; 512]).unwrap();
+        std::fs::write(caches.join("Google/Chrome/c.bin"), vec![0u8; 256]).unwrap();
+
+        let batch = scan_attributed_in(home.path());
+        let streamed = scan_attributed_streaming(home.path(), &|_| {});
+        let totals = |v: &[CategoryResult]| -> Vec<(String, u64, usize)> {
+            v.iter().map(|r| (r.id.clone(), r.bytes, r.items)).collect()
+        };
+        assert_eq!(totals(&batch), totals(&streamed));
     }
 
     #[test]

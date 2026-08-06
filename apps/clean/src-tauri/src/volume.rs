@@ -8,6 +8,21 @@ use std::path::Path;
 /// `f_bavail` is blocks available to an unprivileged process, which is the
 /// figure a user would recognise — `f_bfree` includes reserve they cannot use.
 pub fn available_bytes(path: &Path) -> Option<u64> {
+    let stat = statvfs_of(path)?;
+    Some((stat.f_bavail as u64).saturating_mul(stat.f_frsize))
+}
+
+/// Total size of the volume containing `path`, in bytes.
+///
+/// `f_blocks` is the whole filesystem, which is the figure that pairs with
+/// `available_bytes` to make a free-space reading meaningful — "40 GB free"
+/// says nothing without it.
+pub fn total_bytes(path: &Path) -> Option<u64> {
+    let stat = statvfs_of(path)?;
+    Some((stat.f_blocks as u64).saturating_mul(stat.f_frsize))
+}
+
+fn statvfs_of(path: &Path) -> Option<libc::statvfs> {
     let c_path = CString::new(path.as_os_str().as_bytes()).ok()?;
     let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
     // SAFETY: c_path is a valid NUL-terminated string that outlives the call,
@@ -15,7 +30,7 @@ pub fn available_bytes(path: &Path) -> Option<u64> {
     if unsafe { libc::statvfs(c_path.as_ptr(), &mut stat) } != 0 {
         return None;
     }
-    Some((stat.f_bavail as u64).saturating_mul(stat.f_frsize as u64))
+    Some(stat)
 }
 
 /// Whether the boot volume currently holds local Time Machine snapshots.

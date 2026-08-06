@@ -104,6 +104,57 @@ function normalisePath(path: string): string {
   return trimmed.toLowerCase();
 }
 
+export interface Receipt {
+  package_id: string;
+  version: string | null;
+  location: string | null;
+  stale: boolean;
+  /** The command to run. Shown, never executed — see ADR-0003's posture. */
+  handoff: string;
+}
+
+interface ReceiptsProps {
+  receipts: Receipt[] | null;
+}
+
+/**
+ * Installer receipts, read-only.
+ *
+ * Spiral Clean never forgets a receipt itself: doing so reclaims no space,
+ * and a stale receipt is safer than a missing one when an installer next
+ * runs. Same posture as Homebrew casks and system extensions — inventory it,
+ * show the evidence, hand off to the real owner.
+ */
+function Receipts({ receipts }: ReceiptsProps) {
+  if (receipts === null) return <p>Reading installer receipts…</p>;
+  if (receipts.length === 0) {
+    return <p>No third-party installer receipts. Only macOS's own are on this Mac.</p>;
+  }
+
+  const stale = receipts.filter((r) => r.stale);
+
+  return (
+    <>
+      <p>
+        Spiral Clean does not forget receipts for you. Removing one frees no space, and a missing
+        receipt can stop an installer upgrading properly later.
+        {stale.length > 0 &&
+          ` ${stale.length} of these describe files that are no longer on this Mac.`}
+      </p>
+      <ul>
+        {receipts.map((receipt) => (
+          <li key={receipt.package_id}>
+            <span>{receipt.package_id}</span>
+            {receipt.version && <span>{receipt.version}</span>}
+            {receipt.stale && <span>Its files are gone</span>}
+            <code>{receipt.handoff}</code>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 export default function Uninstall() {
   const [phase, setPhase] = useState<Phase>("listing");
   const [listLoading, setListLoading] = useState(true);
@@ -127,6 +178,7 @@ export default function Uninstall() {
   // The Leftovers section: its own list, its own review dialog, its own
   // error and phase — deliberately not sharing state with the app list
   // above, since it is its own section with its own review sheet.
+  const [receipts, setReceipts] = useState<Receipt[] | null>(null);
   const [leftovers, setLeftovers] = useState<LeftoverItem[]>([]);
   const [leftoversLoading, setLeftoversLoading] = useState(true);
   const [leftoverListError, setLeftoverListError] = useState<string | null>(null);
@@ -326,6 +378,12 @@ export default function Uninstall() {
     closeReview();
     list();
   };
+
+  useEffect(() => {
+    invoke<Receipt[]>("receipts_list")
+      .then(setReceipts)
+      .catch(() => setReceipts([]));
+  }, []);
 
   // ---- Leftovers -----------------------------------------------------
 
@@ -579,6 +637,9 @@ export default function Uninstall() {
           )}
         </dialog>
       )}
+
+      <h2>Installer receipts</h2>
+      <Receipts receipts={receipts} />
 
       <h2>Leftovers</h2>
       {leftoverListError && (

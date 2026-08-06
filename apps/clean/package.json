@@ -13,7 +13,8 @@
     "check:hex": "node scripts/check-hex.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

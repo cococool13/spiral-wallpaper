@@ -1,7 +1,7 @@
 # Spiral (Claude build) — Project Context
 
 The Spiral monorepo: the brand system, the apps, and the site that houses them.
-Current app release **v1.0.2** (Spiral Wallpaper).
+Current app release **v1.0.3** (Spiral Wallpaper).
 
 > **There are two separate Spiral Wallpaper codebases.** This one (`Spiral Claude`) is the
 > shipped repo — `github.com/cococool13/spiral-wallpaper`, pnpm **11.9**, **no tray, closing the
@@ -17,9 +17,10 @@ Current app release **v1.0.2** (Spiral Wallpaper).
 brand/         the design system. Every colour, font, and mark. Single source of truth.
 apps/          one folder per app  ·  apps/wallpaper = Spiral Wallpaper (Tauri, shipped)
                apps/slim = Spiral Slim (Python + Tauri wizard, shipped on macOS)
-               apps/clean = Spiral Clean (Tauri, macOS only, unreleased — M1-M4 shipped:
-                            shell, FDA gate, the tested safety core, the Clean screen,
-                            and Uninstall. Optimize/Storage are still stubs)
+               apps/clean = Spiral Clean (Tauri, macOS only, unreleased —
+                            feature-complete, every screen built. Blocked on signing,
+                            notarization, the updater key, and nobody having yet
+                            opened it. See apps/clean/README.md)
 collection/    the spiral-collection.netlify.app website (Next.js, static export)
 docs/          PRODUCT.md, DESIGN.md, reference/, build specs
 ```
@@ -57,6 +58,7 @@ the website, or website ambition into an app.
 - `README.md` — repo map, current release, downloads, build instructions, roadmap.
 - `brand/README.md` — what is canonical and how each surface consumes it.
 - `collection/README.md` — the website's charter, budgets, and stack.
+- `apps/clean/README.md` — Spiral Clean's safety model, layout, and what blocks its release.
 - `docs/PRODUCT.md` — product promise, audience, scope, and privacy position.
 - `docs/DESIGN.md` — shipped visual system and interaction rules.
 - `brand/guide.html` — full brand reference.
@@ -80,6 +82,7 @@ pnpm install
 pnpm check:hex       # reject colors outside the approved token set
 pnpm build           # token check + TypeScript + Vite production build
 pnpm test            # the frontend suite (Vitest); `pnpm build` does not run it
+pnpm smoke           # native gate: runs the app against this Mac, non-zero on failure
 pnpm tauri dev       # native development app
 
 cd apps/clean/src-tauri
@@ -87,10 +90,29 @@ cargo test           # the safety-core suite; the gate for every removal change
 cargo clippy --all-targets   # must stay warning-free; there is no crate-wide allow
 ```
 
-Spiral Clean releases on a `clean-v*` tag (`git tag clean-v0.1.0`), independent of
+**Never run `cargo fmt` in `apps/clean`.** The crate is not rustfmt-formatted and
+running it rewrites about 1170 lines across files you did not touch — noise that
+buries the real change and is painful to unpick. There is no `rustfmt.toml` and no
+CI format check, so nothing stops you; match the surrounding style by hand instead.
+
+**Cut every release with `node scripts/release.mjs <app> <x.y.z>`**, never a bare
+`git tag`. It bumps the four version files, commits them, and tags *that* commit,
+so a tag can never point at a tree whose versions disagree with it — the failure
+that discarded two fully signed builds on 2026-08-02. It pushes nothing without
+`--push`. `node scripts/version.mjs tag <tag>` answers the same question about a
+tag that already exists.
+
+**After any release, `collection/lib/apps.ts` goes stale** — it is the only page
+that hands out a binary, and its versions are copies of a git tag.
+`node scripts/downloads.mjs latest` checks it against what is actually
+published; CI runs it on `release: published` and weekly.
+
+Spiral Clean releases on a `clean-v*` tag, independent of
 Wallpaper's bare `v*` and Slim's `slim-v*`. All three call the same reusable
 `.github/workflows/release-app.yml`; Clean passes `macos: true, windows: false,
-updater: false` — there is no updater until M7.
+updater: false` — and the updater still cannot be written: the Tauri plugin reads
+`plugins.updater.pubkey` at init and panics without it, so the signing key has to
+exist first.
 
 ```bash
 cd collection
@@ -147,8 +169,8 @@ deployed to Netlify from CI on every push to `main`.
 
 ## Release Notes
 
-- macOS v1.0.2 is universal, Developer ID signed, and notarized.
-- Windows v1.0.2 is built but not code-signed; README documents the SmartScreen flow.
+- macOS v1.0.3 is universal, Developer ID signed, and notarized.
+- Windows v1.0.3 is built but not code-signed; README documents the SmartScreen flow.
 - Checksums ship as `SHA256SUMS.txt` with releases.
 
 ## Definition of Done

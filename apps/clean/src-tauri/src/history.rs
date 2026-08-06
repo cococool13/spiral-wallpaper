@@ -97,6 +97,32 @@ pub fn append(dir: &Path, record: RunRecord) -> Result<(), String> {
     write_whole(dir, &runs).map_err(|e| unwritable(&dir.join(FILE), &e.to_string()))
 }
 
+#[tauri::command]
+pub fn history_read(app: tauri::AppHandle) -> Result<Vec<RunRecord>, String> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Could not locate Spiral Clean's settings folder: {e}. Reopen the app."))?;
+    read(&dir)
+}
+
+/// Empty the log. Decision 12 requires a visible clear control, and this is
+/// what it calls.
+///
+/// The log is the only record of what this application did to the machine, so
+/// clearing it is the user's decision alone — nothing else in the app ever
+/// calls this.
+#[tauri::command]
+pub fn history_clear(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Could not locate Spiral Clean's settings folder: {e}. Reopen the app."))?;
+    write_whole(&dir, &[]).map_err(|e| unwritable(&dir.join(FILE), &e.to_string()))
+}
+
 fn write_whole(dir: &Path, runs: &[RunRecord]) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let json = serde_json::to_string_pretty(runs)?;
@@ -144,6 +170,19 @@ mod tests {
         let runs = read(dir.path()).unwrap();
         assert_eq!(runs.len(), 2);
         assert_eq!(runs[1].removed, 2);
+    }
+
+    #[test]
+    fn clearing_empties_the_log_and_leaves_it_readable() {
+        // Decision 12's visible clear control. A cleared log must read as an
+        // empty log, never as an unreadable one — `read` distinguishes those,
+        // and the second would block nothing but would alarm.
+        let dir = tempfile::tempdir().unwrap();
+        append(dir.path(), record(1)).unwrap();
+        assert_eq!(read(dir.path()).unwrap().len(), 1);
+
+        write_whole(dir.path(), &[]).unwrap();
+        assert!(read(dir.path()).unwrap().is_empty());
     }
 
     #[test]

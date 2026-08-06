@@ -162,7 +162,7 @@ fn is_real_dir(path: &Path) -> bool {
 ///
 /// No caller yet — Task 5 wires this into a Tauri command.
 pub fn read_bundle(path: &Path) -> Option<(String, String)> {
-    let plist = std::fs::read_to_string(path.join("Contents/Info.plist")).ok()?;
+    let plist = plist_text(&path.join("Contents/Info.plist"))?;
     let bundle_id = extract_plist_string(&plist, "CFBundleIdentifier")?;
     let name = extract_plist_string(&plist, "CFBundleName").unwrap_or_else(|| {
         path.file_stem()
@@ -195,7 +195,47 @@ pub fn read_bundle(path: &Path) -> Option<(String, String)> {
 /// its own string value" — sufficient for `CFBundleIdentifier` and
 /// `CFBundleName`, which are always flat string values in a real
 /// `Info.plist`, and nothing else this module reads.
-fn extract_plist_string(xml: &str, key: &str) -> Option<String> {
+/// Read a plist file as XML text, whatever format it is actually in.
+///
+/// **About a quarter of the plists on a Mac are binary**, and every reader in
+/// this codebase was a scan over XML text — so a binary one silently read as
+/// nothing. That is not a cosmetic gap. `apps::discover` could not see
+/// Microsoft Excel or PowerPoint, and `orphans` proposes any reverse-DNS
+/// entry *no discovered app declares* as a leftover: an undiscoverable app's
+/// live Containers become candidates for the Trash while the app sits right
+/// there. Same shape as ADR-0016, reached by a complete id rule over an
+/// incomplete app list rather than the other way round.
+///
+/// The XML fast path is tried first and covers most files with no subprocess.
+/// `plutil` is the fallback, through `proc` so a hung conversion cannot take
+/// the caller with it. A file that is neither is `None` — unreadable, which
+/// every caller already treats as "skip this", never as "assume nothing".
+pub(crate) fn plist_text(path: &Path) -> Option<String> {
+    let raw = std::fs::read(path).ok()?;
+    if let Ok(text) = String::from_utf8(raw) {
+        if text.contains("<plist") {
+            return Some(text);
+        }
+    }
+    crate::proc::output(
+        "plutil",
+        &[
+            std::ffi::OsStr::new("-convert"),
+            std::ffi::OsStr::new("xml1"),
+            std::ffi::OsStr::new("-o"),
+            std::ffi::OsStr::new("-"),
+            path.as_os_str(),
+        ],
+        crate::proc::DEFAULT,
+    )
+}
+
+/// `health` and `startup` reuse this rather than restating it. They read
+/// `Label` out of a launchd plist and `ProductVersion` and `SMARTStatus` out
+/// of Apple's own — all the same flat `<key>…</key><string>…</string>` shape,
+/// all from plists this application did not write. One parser, one place to
+/// fix, for the same reason `orphans` reuses `associate::LOCATIONS`.
+pub(crate) fn extract_plist_string(xml: &str, key: &str) -> Option<String> {
     let key_tag = format!("<key>{key}</key>");
     let after_key = &xml[xml.find(&key_tag)? + key_tag.len()..];
     let region_end = after_key.find("<key>").unwrap_or(after_key.len());
@@ -305,6 +345,89 @@ pub(crate) mod tests_support {
 mod tests {
     use super::*;
     use tests_support::plant_app;
+
+    /// Write `xml` as a real binary plist, the way an installer would.
+    fn binary_plist(path: &std::path::Path, xml: &str) {
+        std::fs::write(path, xml).unwrap();
+        let out = std::process::Command::new("plutil")
+            .args(["-convert", "binary1"])
+            .arg(path)
+            .output()
+            .expect("plutil ships with macOS");
+        assert!(out.status.success(), "plutil could not convert the fixture");
+        assert!(
+            !std::fs::read(path).unwrap().starts_with(b"<?xml"),
+            "the fixture must actually be binary"
+        );
+    }
+
+    #[test]
+    fn a_binary_info_plist_is_read_like_any_other() {
+        // About a quarter of the plists on a Mac are binary — Microsoft
+        // Office's among them. Reading one as nothing made those apps
+        // invisible to discovery, and `orphans` then proposed their live
+        // Containers for the Trash because "no installed app declares" them.
+        let dir = tempfile::tempdir().unwrap();
+        let app = dir.path().join("Excel.app");
+        std::fs::create_dir_all(app.join("Contents")).unwrap();
+        binary_plist(
+            &app.join("Contents/Info.plist"),
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>com.microsoft.Excel</string>
+<key>CFBundleName</key><string>Microsoft Excel</string>
+</dict></plist>"#,
+        );
+
+        let (bundle_id, name) = read_bundle(&app).expect("a binary plist is still a plist");
+        assert_eq!(bundle_id, "com.microsoft.Excel");
+        assert_eq!(name, "Microsoft Excel");
+    }
+
+    #[test]
+    fn a_binary_bundle_is_discovered_so_its_files_are_never_orphans() {
+        // The property that matters, stated end to end: an app whose plist is
+        // binary must appear in `discover`, because everything downstream
+        // treats absence from that list as evidence the app is gone.
+        let root = tempfile::tempdir().unwrap();
+        let app = root.path().join("Excel.app");
+        std::fs::create_dir_all(app.join("Contents")).unwrap();
+        binary_plist(
+            &app.join("Contents/Info.plist"),
+            r#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>com.microsoft.Excel</string>
+<key>CFBundleName</key><string>Microsoft Excel</string>
+</dict></plist>"#,
+        );
+
+        let found = discover_in(&[root.path().to_path_buf()]);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].bundle_id, "com.microsoft.Excel");
+    }
+
+    #[test]
+    fn a_file_that_is_no_kind_of_plist_reads_as_nothing() {
+        // Unreadable, which every caller treats as "skip this" — never as
+        // "assume the app is not installed".
+        let dir = tempfile::tempdir().unwrap();
+        let junk = dir.path().join("Info.plist");
+        std::fs::write(&junk, b"\x00\x01 not a plist at all").unwrap();
+        assert_eq!(plist_text(&junk), None);
+    }
+
+    #[test]
+    fn a_missing_plist_reads_as_nothing() {
+        assert_eq!(plist_text(std::path::Path::new("/nonexistent/spiral/Info.plist")), None);
+    }
+
+    #[test]
+    fn an_xml_plist_needs_no_subprocess() {
+        let dir = tempfile::tempdir().unwrap();
+        let xml = dir.path().join("Info.plist");
+        std::fs::write(&xml, "<plist version=\"1.0\"><dict></dict></plist>").unwrap();
+        assert!(plist_text(&xml).is_some_and(|t| t.contains("<plist")));
+    }
 
     #[test]
     fn reads_the_bundle_id_and_name_from_info_plist() {

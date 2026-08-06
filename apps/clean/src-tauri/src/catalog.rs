@@ -28,6 +28,17 @@ static CATALOG: &[CatalogEntry] = &[
         disposition: Disposition::Permanent,
     },
     CatalogEntry {
+        // Sits inside `user-caches`, and that is deliberate. ADR-0014 gives
+        // every file to its longest matching root, so this entry owns the
+        // icon store and `user-caches` owns the rest — which is what lets
+        // Optimize's "Clear the icon cache" be one catalog-backed removal
+        // rather than a shell command deleting files behind `remove.rs`.
+        id: "icon-services-cache",
+        label: "Icon cache",
+        roots: &["~/Library/Caches/com.apple.iconservices.store"],
+        disposition: Disposition::Permanent,
+    },
+    CatalogEntry {
         id: "user-logs",
         label: "Logs",
         roots: &["~/Library/Logs"],

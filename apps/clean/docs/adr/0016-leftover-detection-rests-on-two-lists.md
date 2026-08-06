@@ -57,3 +57,16 @@ Treating either list as complete. Removing the Trash disposition for leftovers, 
 ## What is still owed
 
 A review of `SYSTEM_OWNED_IDS` against each new macOS release, and against the other nine `associate::LOCATIONS` — only `~/Library/Group Containers` has been surveyed on real disk. Neither is automated, and until Leftovers ships to users that gap is carried knowingly.
+
+
+## Amendment, 2026-08-06 (M7) — the third door into the same failure
+
+The smoke gate's first run reported 19 applications where 21 bundles sat on disk. The cause was not either list in this ADR. It was that **about a quarter of the plists on a Mac are binary**, and every plist reader in this codebase was a scan over XML text — so a binary `Info.plist` read as nothing and its app was never discovered.
+
+Microsoft Excel, PowerPoint and one other were invisible to `apps::discover`. To `orphans`, an app that is not discovered is an app that is gone: its live `Containers` and `Group Containers` are reverse-DNS entries **no installed app declares**, which is precisely the proposal rule. Office's working data would have been offered for the Trash with Excel installed.
+
+**The identifier rule was not at fault this time — it was exactly right.** The *input list it reasons over* was incomplete, and every guard in this ADR is downstream of that list being true. This is the third distinct route into the same failure: a self-derived id (the original), a system-owned id outside `com.apple.*` (the first amendment), and now a complete rule over an incomplete world.
+
+What generalises: **a refusal that depends on "nothing declares this" is only ever as good as the enumeration behind it.** Widening the refusal lists does nothing for a gap in discovery, and no reading of `orphans.rs` would have found this — it took running the thing on a real Mac.
+
+The fix is `apps::plist_text`: the XML fast path, falling back to `plutil -convert xml1` through `proc`'s deadline. Every reader routes through it. The compensating control held again — ADR-0007's Trash disposition is why this would have been recoverable — and it is now the third time that control has been the thing standing between a confident inference and a user's data.

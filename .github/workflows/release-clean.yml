@@ -16,6 +16,20 @@ on:
     tags: ["clean-v*"]
   workflow_dispatch:
 
+# One run per ref. Without this, two runs can exist for the same tag and both
+# reach `publish`, racing to create the same GitHub Release — which is exactly
+# what happened to v1.0.3 on 2026-08-06, when a dispatched run and a
+# late-firing push run appeared 21 seconds apart.
+#
+# `cancel-in-progress` is true for branches and pull requests, where a newer
+# push makes an older run pointless, and **false for tags**: cancelling a
+# release part-way through publishing is a worse outcome than the duplicate.
+# A second tag run instead queues behind the first and then fails loudly at
+# `publish` because the release already exists, which is a clear answer.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   release:
     # Without this the workflow does not merely fail — it never starts. A

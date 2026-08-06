@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import CategoryRow from "../components/CategoryRow";
 import ConfirmSheet from "../components/ConfirmSheet";
 import ResultReport from "../components/ResultReport";
@@ -34,9 +35,29 @@ export default function Clean() {
   const [report, setReport] = useState<CleanReport | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Categories arrive one at a time as each becomes final, so a cold scan
+  // shows what it has found instead of a motionless "Looking for…". The
+  // batch return below is still the source of truth — a dropped event costs
+  // promptness, never correctness.
+  useEffect(() => {
+    const subscription = listen<CategoryResult>("clean:category", (event) => {
+      const found = event.payload;
+      if (found.items === 0) return;
+      setResults((prev) =>
+        prev.some((r) => r.id === found.id) ? prev : [...prev, found],
+      );
+      setSelected((prev) => new Set(prev).add(found.id));
+    });
+    return () => {
+      subscription.then((unlisten) => unlisten()).catch(() => {});
+    };
+  }, []);
+
   const scan = useCallback(() => {
     setPhase("scanning");
     setError(null);
+    setResults([]);
+    setSelected(new Set());
     invoke<CategoryResult[]>("clean_scan")
       .then((r) => {
         const found = r.filter((c) => c.items > 0);
@@ -84,7 +105,22 @@ export default function Clean() {
     );
   }
 
-  if (phase === "scanning") return <section><h1>Clean</h1><p>Looking for reclaimable files…</p></section>;
+  if (phase === "scanning")
+    return (
+      <section>
+        <h1>Clean</h1>
+        <p>Looking for reclaimable files…</p>
+        {results.length > 0 && (
+          <ul>
+            {results.map((r) => (
+              <li key={r.id}>
+                {r.label} <span className="size">{formatBytes(r.bytes)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    );
   if (phase === "running") return <section><h1>Clean</h1><p>Removing…</p></section>;
   if (phase === "done" && report)
     return <section><h1>Clean</h1><ResultReport report={report} onDone={scan} /></section>;

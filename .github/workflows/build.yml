@@ -14,6 +14,20 @@ on:
 # strategy, concurrency — and a workflow-wide default tries to apply `defaults`
 # to it, which GitHub rejects before the run starts. The one job that wants a
 # different directory now says so itself, which is also plainer to read.
+# One run per ref. Without this, two runs can exist for the same tag and both
+# reach `publish`, racing to create the same GitHub Release — which is exactly
+# what happened to v1.0.3 on 2026-08-06, when a dispatched run and a
+# late-firing push run appeared 21 seconds apart.
+#
+# `cancel-in-progress` is true for branches and pull requests, where a newer
+# push makes an older run pointless, and **false for tags**: cancelling a
+# release part-way through publishing is a worse outcome than the duplicate.
+# A second tag run instead queues behind the first and then fails loudly at
+# `publish` because the release already exists, which is a clear answer.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   # Builds the website on every push and pull request, and deploys it when the
   # push is to main. It used to only build: deploying was `netlify deploy` run

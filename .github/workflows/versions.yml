@@ -6,17 +6,32 @@ name: versions
 # seconds, so gating it behind the build jobs would only delay the answer.
 #
 # The release job already compares the tag against package.json and
-# tauri.conf.json, but that fires once, at the end, on a tag. Drift that starts
-# in an ordinary commit should be caught in that commit's own CI run, not
-# discovered by whoever tries to cut a release weeks later.
+# tauri.conf.json, but that fires once, at the *end* of a thirty-minute signed
+# build. On 2026-08-02 both v1.0.3 and slim-v1.0.1 were tagged on commits that
+# predated their bumps; macOS and Windows built, signed and notarized, and the
+# whole run was discarded at the last step. The `tag` job below makes that same
+# comparison in about ten seconds, so a mistagged release fails before a single
+# runner minute is spent on it.
+#
+# Drift that starts in an ordinary commit should still be caught in that
+# commit's own CI run, not discovered by whoever tries to cut a release weeks
+# later — which is what the `check` job is for.
 
 # Every pull request, plus every push to main — not every push to every branch.
 # A branch with an open PR is already covered by `pull_request`, so widening
 # this would double the run on exactly the branches that are being reviewed
 # and add nothing for the ones that are not.
 on:
+  release:
+    types: [published]
+  schedule:
+    # Weekly, as the backstop for releases published from another repository.
+    - cron: "0 9 * * 1"
   push:
     branches: [main]
+    # Every release namespace. A tag that does not match its version files
+    # should learn that immediately, not after the build.
+    tags: ["v*", "slim-v*", "clean-v*"]
   pull_request:
   workflow_dispatch:
 
@@ -34,3 +49,52 @@ jobs:
       # precisely so this job cannot be broken by a dependency.
       - name: Every app's four version files agree
         run: node scripts/version.mjs check
+
+      # No network: this only asks whether the download page agrees with
+      # itself. The half-done bump — constant updated, filename not — is a
+      # real shape, and it is invisible in review because both lines look
+      # right on their own.
+      - name: The download page agrees with itself
+        run: node scripts/downloads.mjs check
+
+  # Only on a tag. Deliberately a separate job so its failure names the real
+  # problem — "this tag does not match" — rather than being one red step inside
+  # a job called "check".
+  tag:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: This tag matches the version files it points at
+        run: node scripts/version.mjs tag "${GITHUB_REF_NAME}"
+
+  # Whether the download page still matches what is actually published.
+  #
+  # Deliberately not on pull requests. It calls the GitHub API, and a rate
+  # limit failing someone's review for a reason they cannot fix would teach
+  # people to ignore a red check — which costs more than the drift it catches.
+  #
+  # `release: published` is the trigger that matters: publishing a release is
+  # the exact moment the site goes stale, and this says so within a minute
+  # instead of whenever somebody next looks. The schedule is the backstop for
+  # Spiral Slim, which publishes from its own repository and so fires no
+  # release event here.
+  downloads:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: The download page matches the latest published releases
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/downloads.mjs latest

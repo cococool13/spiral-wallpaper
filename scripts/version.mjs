@@ -8,6 +8,13 @@
 //   node scripts/version.mjs check                 every app
 //   node scripts/version.mjs check wallpaper       one app
 //   node scripts/version.mjs set wallpaper 1.0.3   write all four
+//   node scripts/version.mjs tag v1.0.3            does that tag match?
+//
+// `tag` exists because `check` proves the four files agree with *each other*
+// and never that they agree with the tag being released. That gap shipped a
+// real failure: v1.0.3 and slim-v1.0.1 were both tagged before their bump
+// commits merged, so the files still said 1.0.2 and 1.0.0. Both builds signed
+// and notarized successfully and were thrown away at the publish step.
 //
 // `check` is deliberately dependency-free and never shells out, so CI can run
 // it on every push in under a second without a toolchain. `set` asks cargo to
@@ -28,6 +35,25 @@ const APPS = {
 };
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
+
+// Longest prefix first: every tag ends up matching bare `v` otherwise, and
+// `slim-v1.0.1` would be read as a Wallpaper release.
+const TAG_PREFIXES = [
+  { prefix: "slim-v", app: "slim" },
+  { prefix: "clean-v", app: "clean" },
+  { prefix: "v", app: "wallpaper" },
+];
+
+/** `clean-v0.1.0` -> `{ app: "clean", version: "0.1.0" }`, or null. */
+export function parseTag(tag) {
+  for (const { prefix, app } of TAG_PREFIXES) {
+    if (tag.startsWith(prefix)) {
+      const version = tag.slice(prefix.length);
+      return SEMVER.test(version) ? { app, version } : null;
+    }
+  }
+  return null;
+}
 
 const fail = (message) => {
   process.stderr.write(`version: ${message}\n`);
@@ -170,6 +196,41 @@ function set(app, version) {
   }
 }
 
+/**
+ * Does `tag` name a version this repository actually carries?
+ *
+ * The same comparison the publish job makes, available before a tag is pushed
+ * rather than only after a thirty-minute signed build.
+ */
+function checkTag(tag) {
+  const parsed = parseTag(tag);
+  if (!parsed) {
+    fail(
+      `"${tag}" is not a release tag this repo understands. ` +
+        `Expected v<x.y.z>, slim-v<x.y.z>, or clean-v<x.y.z>.`,
+    );
+  }
+  const { app, version } = parsed;
+  const found = versionsFor(app);
+  const wrong = Object.entries(found).filter(([, v]) => v !== version);
+
+  if (wrong.length) {
+    // The common case is all four agreeing with each other and disagreeing
+    // with the tag, which reads far better as one sentence than as four.
+    const distinct = [...new Set(wrong.map(([, v]) => v))];
+    const detail =
+      distinct.length === 1 && wrong.length === 4
+        ? `but all four files say ${distinct[0]}`
+        : `but ${wrong.map(([label, v]) => `${label} says ${v}`).join(", ")}`;
+    fail(
+      `tag ${tag} says ${app} is ${version}, ${detail}.\n` +
+        `The tag is on a commit that predates the bump. Cut releases with:\n` +
+        `  node scripts/release.mjs ${app} ${version}`,
+    );
+  }
+  process.stdout.write(`${tag}: ${app} ${version} — all four files agree\n`);
+}
+
 const [command, ...rest] = process.argv.slice(2);
 const names = Object.keys(APPS);
 
@@ -177,6 +238,10 @@ if (command === "check") {
   const apps = rest.length ? rest : names;
   for (const app of apps) if (!APPS[app]) fail(`unknown app "${app}". Known: ${names.join(", ")}`);
   check(apps);
+} else if (command === "tag") {
+  const [tag] = rest;
+  if (!tag) fail("tag needs a tag name: node scripts/version.mjs tag <tag>");
+  checkTag(tag);
 } else if (command === "set") {
   const [app, version] = rest;
   if (!APPS[app]) fail(`unknown app "${app}". Known: ${names.join(", ")}`);
@@ -185,6 +250,7 @@ if (command === "check") {
 } else {
   fail(`usage:
   node scripts/version.mjs check [app...]
+  node scripts/version.mjs tag <tag>
   node scripts/version.mjs set <app> <x.y.z>
 apps: ${names.join(", ")}`);
 }
